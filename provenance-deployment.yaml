@@ -1,0 +1,30 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: provenance-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: provenance-pod
+  template:
+    metadata:
+      labels:
+        app: provenance-pod
+    spec:
+      containers:
+      - name: provenance
+        image: getprovenance:1
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: kind-compositions-volume
+          mountPath: /etc/kubeprovenance
+        env:
+        - name: KIND_COMPOSITION_FILE
+          value: /etc/kubeprovenance/kind_compositions.yaml
+      volumes:
+      - name: kind-compositions-volume
+        configMap:
+          name: kind-compositions-config-map
+
+

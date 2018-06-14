@@ -1,0 +1,24 @@
+- kind: Deployment
+  plural: deployments
+  endpoint: apis/apps/v1
+  composition: [ReplicaSet]
+- kind: ReplicaSet
+  plural: replicasets
+  endpoint: apis/extensions/v1beta1
+  composition: [Pod]
+- kind: EtcdCluster
+  plural: etcdclusters
+  endpoint: apis/etcd.database.coreos.com/v1beta2
+  composition: [Pod, Service]
+- kind: Service
+  plural: services
+  endpoint: api/v1
+  composition: []
+- kind: Pod
+  plural: pods
+  endpoint: api/v1
+  composition: []
+- kind: ConfigMap
+  plural: configmaps
+  endpoint: api/v1
+  composition: []
