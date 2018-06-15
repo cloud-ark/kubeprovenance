@@ -24,7 +24,7 @@ var (
 	httpMethod string
 	etcdServiceURL string
 
-	kindPluralMap map[string]string
+	KindPluralMap map[string]string
 	kindVersionMap map[string]string
 	compositionMap map[string][]string
 
@@ -51,35 +51,10 @@ func init() {
 	SERVICE = "Service"
 	ETCD_CLUSTER = "EtcdCluster"
 
-	kindPluralMap = make(map[string]string)
+	KindPluralMap = make(map[string]string)
 	kindVersionMap = make(map[string]string)
 	compositionMap = make(map[string][]string,0)
-
-	/*
-	kindPluralMap[DEPLOYMENT] = "deployments"
-	kindPluralMap[REPLICA_SET] = "replicasets"
-	kindPluralMap[POD] = "pods"
-	kindPluralMap[CONFIG_MAP] = "configmaps"
-	kindPluralMap[SERVICE] = "services"
-	kindPluralMap[ETCD_CLUSTER] = "etcdclusters"
-
-	kindVersionMap[DEPLOYMENT] = "apis/apps/v1"
-	kindVersionMap[REPLICA_SET] = "apis/extensions/v1beta1"
-	kindVersionMap[POD] = "api/v1"
-	kindVersionMap[CONFIG_MAP] = "api/v1"
-	kindVersionMap[SERVICE] = "api/v1"
-	kindVersionMap[ETCD_CLUSTER] = "apis/etcd.database.coreos.com/v1beta2"
-
-	compositionMap[DEPLOYMENT] = []string{REPLICA_SET}
-	compositionMap[REPLICA_SET] = []string{POD}
-	compositionMap[ETCD_CLUSTER] = []string{POD, SERVICE}
-	*/
 }
-
-// Reference: 
-// 1. https://stackoverflow.com/questions/30690186/how-do-i-access-the-kubernetes-api-from-within-a-pod-container
-// 2. https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
-// 3. https://github.com/coreos/etcd/tree/master/client
 
 func CollectProvenance() {
 	fmt.Println("Inside CollectProvenance")
@@ -142,7 +117,7 @@ func readKindCompositionFile() {
     	plural := compositionObj.Plural
     	//fmt.Printf("Kind:%s, Plural: %s Endpoint:%s, Composition:%s\n", kind, plural, endpoint, composition)
 
-    	kindPluralMap[kind] = plural
+    	KindPluralMap[kind] = plural
     	kindVersionMap[kind] = endpoint
     	compositionMap[kind] = composition
     }
@@ -154,8 +129,8 @@ func printMaps() {
 	for key, value := range kindVersionMap {
 		fmt.Printf("%s, %s\n", key, value)
 	}
-	fmt.Println("Printing kindPluralMap")
-	for key, value := range kindPluralMap {
+	fmt.Println("Printing KindPluralMap")
+	for key, value := range KindPluralMap {
 		fmt.Printf("%s, %s\n", key, value)
 	}
 	fmt.Println("Printing compositionMap")
@@ -177,7 +152,7 @@ func getResourceKinds() []string {
 
 func getResourceNames(resourceKind string) []string{
 	resourceApiVersion := kindVersionMap[resourceKind]
-	resourceKindPlural := kindPluralMap[resourceKind]
+	resourceKindPlural := KindPluralMap[resourceKind]
 	content := getResourceListContent(resourceApiVersion, resourceKindPlural)
 	metaDataAndOwnerReferenceList := parseMetaData(content)
 
@@ -349,7 +324,7 @@ func buildProvenance(parentResourceKind string, parentResourceName string, level
 	childResourceKindList, present := compositionMap[parentResourceKind]
 	if present {
 		for _, childResourceKind := range childResourceKindList {
-			childKindPlural := kindPluralMap[childResourceKind]
+			childKindPlural := KindPluralMap[childResourceKind]
 			childResourceApiVersion := kindVersionMap[childResourceKind]
 			content := getResourceListContent(childResourceApiVersion, childKindPlural)
 			metaDataAndOwnerReferenceList := parseMetaData(content)
@@ -549,4 +524,10 @@ func getCACert() *cert.CertPool {
 	caCertPool.AppendCertsFromPEM(caCert)
 	return caCertPool
 }
+
+// Reference: 
+// 1. https://stackoverflow.com/questions/30690186/how-do-i-access-the-kubernetes-api-from-within-a-pod-container
+// 2. https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
+// 3. https://github.com/coreos/etcd/tree/master/client
+
 

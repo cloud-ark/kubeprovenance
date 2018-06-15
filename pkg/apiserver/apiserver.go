@@ -121,9 +121,9 @@ func (c completedConfig) New() (*ProvenanceServer, error) {
 
 func installProvenanceWebService(provenanceServer *ProvenanceServer) {
 	fmt.Printf("========== 8 ===============\n")
-	resourceKindList := []string{"Deployments","EtcdClusters"}
-	for _, resourceKind := range resourceKindList {
-		path := "/apis/" + GroupName + "/" + GroupVersion + "/compositions/" + resourceKind
+	//resourceKindList := []string{"Deployments","EtcdClusters"}
+	for _, resourceKindPlural := range provenance.KindPluralMap {
+		path := "/apis/" + GroupName + "/" + GroupVersion + "/compositions/" + resourceKindPlural
 		fmt.Println("WS PATH:" + path)
 		ws := getProvenanceWebService()
 		ws.Path(path).
@@ -132,7 +132,7 @@ func installProvenanceWebService(provenanceServer *ProvenanceServer) {
 		ws.Route(ws.GET("/{resource-id}").To(getCompositions))
 		provenanceServer.GenericAPIServer.Handler.GoRestfulContainer.Add(ws)
 
-		path1 := "/apis/" + GroupName + "/" + GroupVersion + "/namespaces/default/" + strings.ToLower(resourceKind)
+		path1 := "/apis/" + GroupName + "/" + GroupVersion + "/namespaces/default/" + strings.ToLower(resourceKindPlural)
 		fmt.Println("WS PATH1:" + path1)
 		ws1 := getProvenanceWebService()
 		ws1.Path(path1).
@@ -177,10 +177,7 @@ func installProvenanceWebService_in_cluster(provenanceServer *ProvenanceServer) 
 func getProvenanceWebService() *restful.WebService {
 	ws := new(restful.WebService)
 	ws.Path("/apis")
-	// a.prefix contains "prefix/group/version"
 	ws.Consumes("*/*")
-	//mediaTypes, streamMediaTypes := negotiation.MediaTypesForSerializer(a.group.Serializer)
-	//ws.Produces(append(mediaTypes, streamMediaTypes...)...)
 	ws.Produces(restful.MIME_JSON, restful.MIME_XML)
 	ws.ApiVersion(GroupName)
 	return ws
@@ -190,10 +187,6 @@ func getCompositions(request *restful.Request, response *restful.Response) {
 	fmt.Printf("========== AAAAA ===============\n")
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
-	//requestHost := request.Request.Host
-	//stringToReturn := "Hello there - THis is compositon of Resource name:%s" + resName + " -- Pod1 Pod2 Service2\n"
-	//stringToReturn = stringToReturn + "Request URL Path:" + requestPath + "--\n"
-	//stringToReturn = stringToReturn + "Request Host:" + requestHost + "--\n"
 	fmt.Printf("Printing Provenance\n")
 	//provenance.TotalClusterProvenance.PrintProvenance()
 
@@ -201,11 +194,8 @@ func getCompositions(request *restful.Request, response *restful.Response) {
 	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/etcdclusters/sn/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6]
-	//resourceName := resourcePathSlice[7]
 	provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
 
-	//stringToReturn = stringToReturn + provenanceInfo
-	//response.WriteEntity(provenanceInfo)
 	response.Write([]byte(provenanceInfo))
 }
 
