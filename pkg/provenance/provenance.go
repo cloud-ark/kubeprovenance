@@ -1,4 +1,4 @@
-package main 
+package provenance 
 
 import (
 	"encoding/json"
@@ -15,32 +15,6 @@ import (
 	"gopkg.in/yaml.v2"
 	"github.com/coreos/etcd/client"
 )
-
-type composition struct {
-	Kind string `yaml:"kind"`
-	Plural string `yaml:"plural"`
-	Endpoint string `yaml:"endpoint"`
-	Composition []string `yaml:"composition"`
-}
-
-type MetaDataAndOwnerReferences struct {
-	MetaDataName string
-	OwnerReferenceName string
-	OwnerReferenceKind string
-	OwnerReferenceAPIVersion string
-}
-
-type CompositionTreeNode struct {
-	Level int
-	ChildKind string
-	Children []MetaDataAndOwnerReferences
-}
-
-type Provenance struct {
-	Kind string
-	Name string
-	CompositionTree *[]CompositionTreeNode
-}
 
 var (
 	serviceHost string
@@ -59,12 +33,9 @@ var (
 	CONFIG_MAP string
 	SERVICE string
 	ETCD_CLUSTER string
-
-	clusterProvenance []Provenance
 )
 
 func init() {
-	clusterProvenance = []Provenance{}
 	serviceHost = os.Getenv("KUBERNETES_SERVICE_HOST")
 	servicePort = os.Getenv("KUBERNETES_SERVICE_PORT")
 	namespace = "default"
@@ -109,8 +80,8 @@ func init() {
 // 2. https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
 // 3. https://github.com/coreos/etcd/tree/master/client
 
-func main() {
-
+func CollectProvenance() {
+	fmt.Println("Inside CollectProvenance")
 	for {
 		readKindCompositionFile()
 		provenanceToPrint := false
@@ -118,28 +89,30 @@ func main() {
 		for _, resourceKind := range resourceKindList {
 			resourceNameList := getResourceNames(resourceKind)
 			for _, resourceName := range resourceNameList {
-				provenanceNeeded := checkIfProvenanceNeeded(resourceKind, resourceName)
+				provenanceNeeded := TotalClusterProvenance.checkIfProvenanceNeeded(resourceKind, resourceName)
 				if provenanceNeeded {
 					fmt.Println("###################################")
 					fmt.Printf("Building Provenance for %s %s\n", resourceKind, resourceName)
 					level := 1
 					compositionTree := []CompositionTreeNode{}
 					buildProvenance(resourceKind, resourceName, level, &compositionTree)
-					storeProvenance(resourceKind, resourceName, &compositionTree)
+					TotalClusterProvenance.storeProvenance(resourceKind, resourceName, &compositionTree)
 					fmt.Println("###################################\n")
 					provenanceToPrint = true
 				}
 			}
 		}
 		if provenanceToPrint {
-			printProvenance()
+			TotalClusterProvenance.PrintProvenance()
 		}
 		time.Sleep(time.Second * 5)
 	}
 }
 
-func checkIfProvenanceNeeded(resourceKind, resourceName string) bool {
-	for _, provenanceItem := range clusterProvenance {
+func (cp *ClusterProvenance) checkIfProvenanceNeeded(resourceKind, resourceName string) bool {
+	cp.mux.Lock()
+	defer cp.mux.Unlock()
+	for _, provenanceItem := range cp.clusterProvenance {
 		kind := provenanceItem.Kind
 		name := provenanceItem.Name
 		if resourceKind == kind && resourceName == name {
@@ -216,9 +189,11 @@ func getResourceNames(resourceKind string) []string{
 	return resourceNameSlice
 }
 
-func printProvenance() {
+func (cp *ClusterProvenance) PrintProvenance() {
+	cp.mux.Lock()
+	defer cp.mux.Unlock()
 	fmt.Println("Provenance of different Kinds in this Cluster")
-		for _, provenanceItem := range clusterProvenance {
+		for _, provenanceItem := range cp.clusterProvenance {
 			kind := provenanceItem.Kind
 			name := provenanceItem.Name
 			compositionTree := provenanceItem.CompositionTree
@@ -238,13 +213,16 @@ func printProvenance() {
 
 // This stores Provenance information in memory. The provenance information will be lost
 // when this Pod is deleted. 
-func storeProvenance(resourceKind string, resourceName string, compositionTree *[]CompositionTreeNode) {
+func (cp *ClusterProvenance) storeProvenance(resourceKind string, resourceName string, 
+	compositionTree *[]CompositionTreeNode) {
+	cp.mux.Lock()
+	defer cp.mux.Unlock()
 	provenance := Provenance{
 		Kind: resourceKind,
 		Name: resourceName,
 		CompositionTree: compositionTree,
 	}
-	clusterProvenance = append(clusterProvenance, provenance)
+	cp.clusterProvenance = append(cp.clusterProvenance, provenance)
 }
 
 // This stores Provenance information in etcd accessible at the etcdServiceURL

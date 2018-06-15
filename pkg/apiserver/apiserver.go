@@ -15,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+
+	"github.com/cloud-ark/kubeprovenance/pkg/provenance"
 )
 
 const GroupName = "kubeprovenance.cloudark.io"
@@ -49,6 +51,9 @@ func init() {
 		&metav1.APIGroup{},
 		&metav1.APIResourceList{},
 	)
+
+	// Start collecting provenance
+	go provenance.CollectProvenance()
 }
 
 type ExtraConfig struct {
@@ -184,6 +189,10 @@ func getCompositions(request *restful.Request, response *restful.Response) {
 	fmt.Printf("========== AAAAA ===============\n")
 	resName := request.PathParameter("resource-id")
 	stringToReturn := "Hello there - THis is compositon of Resource name:%s" + resName + " -- Pod1 Pod2 Service2\n"
+
+	fmt.Printf("Printing Provenance\n") 
+	provenance.TotalClusterProvenance.PrintProvenance()
+
 	response.WriteEntity(stringToReturn)
 }
 
