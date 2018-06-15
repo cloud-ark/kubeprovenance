@@ -20,7 +20,7 @@ import (
 var (
 	serviceHost string
 	servicePort string
-	namespace string
+	Namespace string
 	httpMethod string
 	etcdServiceURL string
 
@@ -39,7 +39,7 @@ var (
 func init() {
 	serviceHost = os.Getenv("KUBERNETES_SERVICE_HOST")
 	servicePort = os.Getenv("KUBERNETES_SERVICE_PORT")
-	namespace = "default"
+	Namespace = "default"
 	httpMethod = http.MethodGet
 
 	etcdServiceURL = "http://example-etcd-cluster-client:2379"
@@ -350,7 +350,7 @@ func buildProvenance(parentResourceKind string, parentResourceName string, level
 
 func getResourceListContent(resourceApiVersion, resourcePlural string) []byte {
 	//fmt.Println("Entering getResourceListContent")
-	url1 := fmt.Sprintf("https://%s:%s/%s/namespaces/%s/%s", serviceHost, servicePort, resourceApiVersion, namespace, resourcePlural)
+	url1 := fmt.Sprintf("https://%s:%s/%s/namespaces/%s/%s", serviceHost, servicePort, resourceApiVersion, Namespace, resourcePlural)
 	//fmt.Printf("Url:%s\n",url1)
 	caToken := getToken()
 	caCertPool := getCACert()

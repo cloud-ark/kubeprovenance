@@ -2,8 +2,6 @@ package apiserver
 
 import (
 	"fmt"
-	"os"
-	"io/ioutil"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,11 +35,18 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 
 func init() {
 	utilruntime.Must(AddToScheme(Scheme))
+
+	// Setting VersionPriority is critical in the InstallAPIGroup call (done in New())
 	utilruntime.Must(Scheme.SetVersionPriority(SchemeGroupVersion))
+
+	// TODO(devdattakulkarni) -- Following comments coming from sample-apiserver.
+	// Leaving them for now. 
 	// we need to add the options to empty v1
 	// TODO fix the server code to avoid this
 	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: GroupVersion})
 
+	// TODO(devdattakulkarni) -- Following comments coming from sample-apiserver.
+	// Leaving them for now.
 	// TODO: keep the generic API server from wanting this
 	unversioned := schema.GroupVersion{Group: "", Version: GroupVersion}
 	Scheme.AddUnversionedTypes(unversioned,
@@ -112,69 +117,28 @@ func (c completedConfig) New() (*ProvenanceServer, error) {
 		return nil, err
 	}
 
-	//installProvenanceWebService_in_cluster(s)
-
-	installProvenanceWebService(s)
+	installCompositionProvenanceWebService(s)
 
 	return s, nil
 }
 
-func installProvenanceWebService(provenanceServer *ProvenanceServer) {
-	fmt.Printf("========== 8 ===============\n")
-	//resourceKindList := []string{"Deployments","EtcdClusters"}
+func installCompositionProvenanceWebService(provenanceServer *ProvenanceServer) {
 	for _, resourceKindPlural := range provenance.KindPluralMap {
-		path := "/apis/" + GroupName + "/" + GroupVersion + "/compositions/" + resourceKindPlural
+		namespaceToUse := provenance.Namespace
+		path := "/apis/" + GroupName + "/" + GroupVersion + "/namespaces/"
+		path = path + namespaceToUse + "/" + strings.ToLower(resourceKindPlural)
 		fmt.Println("WS PATH:" + path)
-		ws := getProvenanceWebService()
+		ws := getWebService()
 		ws.Path(path).
 			Consumes(restful.MIME_JSON, restful.MIME_XML).
 			Produces(restful.MIME_JSON, restful.MIME_XML)
-		ws.Route(ws.GET("/{resource-id}").To(getCompositions))
-		provenanceServer.GenericAPIServer.Handler.GoRestfulContainer.Add(ws)
-
-		path1 := "/apis/" + GroupName + "/" + GroupVersion + "/namespaces/default/" + strings.ToLower(resourceKindPlural)
-		fmt.Println("WS PATH1:" + path1)
-		ws1 := getProvenanceWebService()
-		ws1.Path(path1).
-			Consumes(restful.MIME_JSON, restful.MIME_XML).
-			Produces(restful.MIME_JSON, restful.MIME_XML)
 		getPath := "/{resource-id}/compositions"
-		ws1.Route(ws1.GET(getPath).To(getCompositions))
-		provenanceServer.GenericAPIServer.Handler.GoRestfulContainer.Add(ws1)
+		ws.Route(ws.GET(getPath).To(getCompositions))
+		provenanceServer.GenericAPIServer.Handler.GoRestfulContainer.Add(ws)
 	}
 }
 
-func installProvenanceWebService_in_cluster(provenanceServer *ProvenanceServer) {
-	fmt.Printf("========== 7 ===============\n")
-
-	// Read file location from environment variable
-     filePath := os.Getenv("KUBEPLUS_PLATFORM_FILE")
-     content, err := ioutil.ReadFile(filePath)
-     if err != nil {
-     	fmt.Printf("Error reading file:%s", err)
-     }
-
-     lines := strings.Split(string(content), "\n")
-
-     for _, crd := range lines {
-     	if crd != "" {
-     		fmt.Printf("CRD:%v\n", crd)
-			fmt.Printf("========== 8 ===============\n")
-		    //path := "/apis/" + GroupName + "/v1alpha1/namespaces/default/" + crd
-
-			path := "/apis/" + GroupName + "/compositions/"
-
-			ws := getProvenanceWebService()
-			ws.Path(path).
-				Consumes(restful.MIME_JSON, restful.MIME_XML).
-				Produces(restful.MIME_JSON, restful.MIME_XML)
-			ws.Route(ws.GET("/" + crd + "/{crd-id}/").To(getCompositions))
-			provenanceServer.GenericAPIServer.Handler.GoRestfulContainer.Add(ws)
-		}
-	}
-}
-
-func getProvenanceWebService() *restful.WebService {
+func getWebService() *restful.WebService {
 	ws := new(restful.WebService)
 	ws.Path("/apis")
 	ws.Consumes("*/*")
@@ -184,18 +148,16 @@ func getProvenanceWebService() *restful.WebService {
 }
 
 func getCompositions(request *restful.Request, response *restful.Response) {
-	fmt.Printf("========== AAAAA ===============\n")
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
-	fmt.Printf("Printing Provenance\n")
+	//fmt.Printf("Printing Provenance\n")
 	//provenance.TotalClusterProvenance.PrintProvenance()
 
 	// Path looks as follows:
-	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/etcdclusters/sn/compositions
+	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
-	resourceKind := resourcePathSlice[6]
+	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
 	provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
 
 	response.Write([]byte(provenanceInfo))
 }
-
