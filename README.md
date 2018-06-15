@@ -1,80 +1,67 @@
-Steps:
--------
+# kubeprovenance
 
-To Run the kubeprovenance server
----------------------------------
-
-Following steps are taken from the sample-apiserver README (https://github.com/kubernetes/sample-apiserver)
-
-a) Build the Provenance Server binary:
-
-unset GOOS
-
-dep init (or dep ensure)
-
-go build
-
-go install
-
-b) Generate certificates
-
-openssl req -nodes -new -x509 -keyout ca.key -out ca.crt
-
-openssl req -out client.csr -new -newkey rsa:4096 -nodes -keyout client.key -subj "/CN=development/O=system:masters"
-
-openssl x509 -req -days 365 -in client.csr -CA ca.crt -CAkey ca.key -set_serial 01 -out client.crt
-
-openssl pkcs12 -export -in ./client.crt -inkey ./client.key -out client.p12 -passout pass:password
-
-c) Install etcd
-
-d) Start etcd
-
-etcd &
-
-e) Run kubeprovenance server
-
-kubeprovenance --secure-port 8443 --etcd-servers http://127.0.0.1:2379 --v=7 \
-	--client-ca-file ca.crt \
-	--kubeconfig ~/.kube/config \
-	--authentication-kubeconfig ~/.kube/config \
-	--authorization-kubeconfig ~/.kube/config
-
-f) Verify (Steps for Mac)
-
-brew install httpie
-
-http --verify=no --cert client.crt --cert-key client.key https://localhost:8443/apis/kubeprovenance.cloudark.io/v1/compositions/Deployments/abcasjdkjsljs
-
-g) Verify
-
-curl -fv -k --cert client.p12:password \
-   https://localhost:8443/apis/kubeprovenance.cloudark.io/v1/compositions/Deployments/abcasjdkjsljs
+A Kubernetes Aggregated API Server that shows dynamic composition information for various Kinds in your cluster.
 
 
-To Deploy the Provenance container:
-------------------------------------
+## What is it?
 
-cd pkg/provenance
-
-export GOOS=linux; go build provenance.go
-
-cd ../../
-
-docker build -t getprovenance:1 -f Dockerfile.provenance .
-
-kubectl create configmap kind-compositions-config-map --from-file=kind_compositions.yaml
-
-kubectl apply -f provenance-deployment.yaml
-
-kubectl get pods
-
-kubectl logs "provenance-deployment-pod"
+kubeprovenance is a Kubernetes Aggregated API Server that shows dynamic composition information for various Kinds in your cluster. It builds this dynamic composition provenance by continuously tracking compositions for various Objects of different Kinds that are created in your cluster.
 
 
+## How does it work?
+
+In Kubernetes certain resources are composed of other resources.
+For example, a Deployment is composed of a ReplicaSet which in turn is composed of one or more Pods.
+Today it is not straight forward to find out entire tree of children resources for a given parent resource.
+kubeprovenance API Server solves this problem.
+
+You provide it a YAML file that defines static composition relationship between different Resources/Kinds.
+Using this information kubeprovenance API Server builds the dynamic provenance information by querying
+the Kubernetes API. The Provenance information is currently stored in memory.
+
+An example YAML file is provided (kind_composition.yaml).
+It can contain both in-built Kinds (such as Deployment, Pod, Service), and
+Custom Resource Kinds (such as EtcdCluster).
+
+kubeprovenane API server registers REST endpoints for all the kinds that are defined in the YAML file.
+These endpoints will be accessed by `kubectl get` command (see below).
 
 
+## Try it
 
 
+Scripts are provided to help with building the API server container image and deployment/cleanup.
+
+1) Build the API Server container image:
+
+   `$ ./build-provenance-artifacts.sh`
+
+2) Deploy the kubeprovenance API Server in your cluster:
+
+   `$ ./deploy-provenance-artifacts.sh`
+
+3) Clean-up:
+
+    `$ ./delete-provenance-artifacts.sh`
 
 
+Once the kubeprovenance API server is running, you can find the dynamic composition information by using following commands:
+
+
+1) Get dynamic composition for all deployments
+
+```
+kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/*/compositions | python -mjson.tool
+```
+
+2) Get dynamic composition for a particular deployment
+
+```
+kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/<dep-name>/compositions | python -mjson.tool
+```
+
+3) Get dynamic composition for all replicasets
+
+```
+kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/replicasets/*/compositions | python -mjson.tool
+```
