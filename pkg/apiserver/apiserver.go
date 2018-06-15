@@ -13,6 +13,8 @@ import (
 	"github.com/emicklei/go-restful"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 const GroupName = "kubeprovenance.cloudark.io"
@@ -21,10 +23,19 @@ const GroupVersion = "v1"
 var (
 	Scheme = runtime.NewScheme()
 	Codecs = serializer.NewCodecFactory(Scheme)
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	AddToScheme   = SchemeBuilder.AddToScheme
     SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
 )
 
+func addKnownTypes(scheme *runtime.Scheme) error {
+	scheme.AddKnownTypes(SchemeGroupVersion)
+	return nil
+}
+
 func init() {
+	utilruntime.Must(AddToScheme(Scheme))
+	utilruntime.Must(Scheme.SetVersionPriority(SchemeGroupVersion))
 	// we need to add the options to empty v1
 	// TODO fix the server code to avoid this
 	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: GroupVersion})
@@ -90,6 +101,12 @@ func (c completedConfig) New() (*ProvenanceServer, error) {
 		GenericAPIServer: genericServer,
 	}
 
+	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(GroupName, Scheme, metav1.ParameterCodec, Codecs)
+
+	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
+		return nil, err
+	}
+
 	//installProvenanceWebService_in_cluster(s)
 
 	installProvenanceWebService(s)
@@ -109,6 +126,15 @@ func installProvenanceWebService(provenanceServer *ProvenanceServer) {
 			Produces(restful.MIME_JSON, restful.MIME_XML)
 		ws.Route(ws.GET("/{resource-id}").To(getCompositions))
 		provenanceServer.GenericAPIServer.Handler.GoRestfulContainer.Add(ws)
+
+		path1 := "/apis/" + GroupName + "/" + GroupVersion + "/namespaces/default/" + strings.ToLower(resourceKind)
+		fmt.Println("WS PATH1:" + path1)
+		ws1 := getProvenanceWebService()
+		ws1.Path(path1).
+			Consumes(restful.MIME_JSON, restful.MIME_XML).
+			Produces(restful.MIME_JSON, restful.MIME_XML)
+		ws1.Route(ws1.GET("/{resource-id}/compositions").To(getCompositions))
+		provenanceServer.GenericAPIServer.Handler.GoRestfulContainer.Add(ws1)
 	}
 }
 
