@@ -101,7 +101,6 @@ func (cp *ClusterProvenance) checkIfProvenanceNeeded(resourceKind, resourceName 
 func readKindCompositionFile() {
 	// read from the opt file
     filePath := os.Getenv("KIND_COMPOSITION_FILE")
-    //filePath := "./kind_compositions.yaml"
     yamlFile, err := ioutil.ReadFile(filePath)
     if err != nil {
     	fmt.Printf("Error reading file:%s", err)
@@ -141,9 +140,6 @@ func printMaps() {
 
 func getResourceKinds() []string {
 	resourceKindSlice := make([]string, 0)
-//	resourceKindSlice = append(resourceKindSlice, ETCD_CLUSTER)
-//	resourceKindSlice = append(resourceKindSlice, DEPLOYMENT)
-//	resourceKindSlice = append(resourceKindSlice, CONFIG_MAP)
 	for key, _ := range compositionMap {
 		resourceKindSlice = append(resourceKindSlice, key)
 	}
@@ -226,9 +222,9 @@ func (cp *ClusterProvenance) GetProvenance(resourceKind, resourceName string) st
 		name := strings.ToLower(provenanceItem.Name)
 		compositionTree := provenanceItem.CompositionTree
 		resourceKind := strings.ToLower(resourceKind)
-			//TODO(devdattakulkarni): Make route registration and provenance keyed info
-			//to use same kind name (plural). Currently Provenance info is keyed on
-			//singular kind names. For now, trimming the 's' at the end
+		//TODO(devdattakulkarni): Make route registration and provenance keyed info
+		//to use same kind name (plural). Currently Provenance info is keyed on
+		//singular kind names. For now, trimming the 's' at the end
 		resourceKind = strings.TrimSuffix(resourceKind, "s") 
 		resourceName := strings.ToLower(resourceName)
 		//fmt.Printf("Kind:%s, Kind:%s, Name:%s, Name:%s\n", kind, resourceKind, name, resourceName)
@@ -273,6 +269,7 @@ func (cp *ClusterProvenance) storeProvenance(resourceKind string, resourceName s
 // One option to deploy etcd is to use the CoreOS etcd-operator.
 // The etcdServiceURL initialized in init() is for the example etcd cluster that
 // will be created by the etcd-operator. See https://github.com/coreos/etcd-operator
+//Ref:https://github.com/coreos/etcd/tree/master/client
 func storeProvenance_etcd(resourceKind string, resourceName string, compositionTree *[]CompositionTreeNode) {
 	//fmt.Println("Entering storeProvenance")
     jsonCompositionTree, err := json.Marshal(compositionTree)
@@ -385,6 +382,7 @@ func getResourceListContent(resourceApiVersion, resourcePlural string) []byte {
 	return resp_body
 }
 
+//Ref:https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
 func parseMetaData(content []byte) []MetaDataAndOwnerReferences {
 	//fmt.Println("Entering parseMetaData")
 	var result map[string]interface{}
@@ -442,69 +440,16 @@ func parseMetaData(content []byte) []MetaDataAndOwnerReferences {
 }
 
 func filterChildren(metaDataSlice *[]MetaDataAndOwnerReferences, parentResourceName string) []MetaDataAndOwnerReferences {
-	//fmt.Println("Entering filterChildren")
 	metaDataSliceToReturn := []MetaDataAndOwnerReferences{}
-	//fmt.Println("Printing the MetaDataSlice")
 	for _, metaDataRef := range *metaDataSlice {
 		if metaDataRef.OwnerReferenceName == parentResourceName {
-			//fmt.Println("%v\n", metaDataRef)
-			//fmt.Println("*************")
 			metaDataSliceToReturn = append(metaDataSliceToReturn, metaDataRef)
 		}
 	}
-	//fmt.Println("Exiting filterChildren")
 	return metaDataSliceToReturn
 }
 
-
-func parse_prev(content []byte) map[string]string {
-	var result map[string]interface{}
-	json.Unmarshal([]byte(content), &result)
-
-	// We need to parse following from the result
-	// metadata.name
-	// metadata.ownerReferences.name
-	// metadata.ownerReferences.kind
-	// metadata.ownerReferences.apiVersion
-
-	var mapToReturn map[string]string
-
-	items := result["items"].([]interface{})
-	for _, item := range items {
-		fmt.Println("=======================")
-		itemConverted := item.(map[string]interface{})
-		for key, value := range itemConverted {
-			if key == "metadata" {
-				fmt.Println("----")
-				//fmt.Println(key, value.(interface{}))
-				metadataMap := value.(map[string]interface{})
-				for mkey, mvalue := range metadataMap {
-					fmt.Printf("%v ==> %v\n", mkey, mvalue.(interface{}))
-					if mkey == "ownerReferences" {
-						ownerReferencesList := mvalue.([]interface{})
-						for _, ownerReference := range ownerReferencesList {
-							ownerReferenceMap := ownerReference.(map[string]interface{})
-							for okey, ovalue := range ownerReferenceMap {
-								fmt.Printf("%v --> %v\n", okey, ovalue)
-							}
-						}
-					}
-				}
-				fmt.Println("----")
-			}
-		}
-		fmt.Println("=======================")
-	}
-	fmt.Println("**************")
-	fmt.Println("Map to Return:")
-	for key, value := range mapToReturn {
-		fmt.Printf("%v --> %v\n", key, value)
-	}
-	fmt.Println("**************")
-	return mapToReturn
-}
-
-
+// Ref:https://stackoverflow.com/questions/30690186/how-do-i-access-the-kubernetes-api-from-within-a-pod-container
 func getToken() []byte {
 	caToken, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
 	if err != nil {
@@ -514,6 +459,7 @@ func getToken() []byte {
 	return caToken
 }
 
+// Ref:https://stackoverflow.com/questions/30690186/how-do-i-access-the-kubernetes-api-from-within-a-pod-container
 func getCACert() *cert.CertPool {
 	caCertPool := cert.NewCertPool()
 	caCert, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
@@ -524,10 +470,3 @@ func getCACert() *cert.CertPool {
 	caCertPool.AppendCertsFromPEM(caCert)
 	return caCertPool
 }
-
-// Reference: 
-// 1. https://stackoverflow.com/questions/30690186/how-do-i-access-the-kubernetes-api-from-within-a-pod-container
-// 2. https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
-// 3. https://github.com/coreos/etcd/tree/master/client
-
-
