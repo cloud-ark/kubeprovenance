@@ -138,7 +138,8 @@ func installProvenanceWebService(provenanceServer *ProvenanceServer) {
 		ws1.Path(path1).
 			Consumes(restful.MIME_JSON, restful.MIME_XML).
 			Produces(restful.MIME_JSON, restful.MIME_XML)
-		ws1.Route(ws1.GET("/{resource-id}/compositions").To(getCompositions))
+		getPath := "/{resource-id}/compositions"
+		ws1.Route(ws1.GET(getPath).To(getCompositions))
 		provenanceServer.GenericAPIServer.Handler.GoRestfulContainer.Add(ws1)
 	}
 }
@@ -187,12 +188,24 @@ func getProvenanceWebService() *restful.WebService {
 
 func getCompositions(request *restful.Request, response *restful.Response) {
 	fmt.Printf("========== AAAAA ===============\n")
-	resName := request.PathParameter("resource-id")
-	stringToReturn := "Hello there - THis is compositon of Resource name:%s" + resName + " -- Pod1 Pod2 Service2\n"
+	resourceName := request.PathParameter("resource-id")
+	requestPath := request.Request.URL.Path
+	//requestHost := request.Request.Host
+	//stringToReturn := "Hello there - THis is compositon of Resource name:%s" + resName + " -- Pod1 Pod2 Service2\n"
+	//stringToReturn = stringToReturn + "Request URL Path:" + requestPath + "--\n"
+	//stringToReturn = stringToReturn + "Request Host:" + requestHost + "--\n"
+	fmt.Printf("Printing Provenance\n")
+	//provenance.TotalClusterProvenance.PrintProvenance()
 
-	fmt.Printf("Printing Provenance\n") 
-	provenance.TotalClusterProvenance.PrintProvenance()
+	// Path looks as follows:
+	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/etcdclusters/sn/compositions
+	resourcePathSlice := strings.Split(requestPath, "/")
+	resourceKind := resourcePathSlice[6]
+	//resourceName := resourcePathSlice[7]
+	provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
 
-	response.WriteEntity(stringToReturn)
+	//stringToReturn = stringToReturn + provenanceInfo
+	//response.WriteEntity(provenanceInfo)
+	response.Write([]byte(provenanceInfo))
 }
 

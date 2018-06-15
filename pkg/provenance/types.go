@@ -11,6 +11,13 @@ type composition struct {
 	Composition []string `yaml:"composition"`
 }
 
+type Composition struct {
+	Level int
+	Kind string
+	Name string
+	Children []Composition
+}
+
 type MetaDataAndOwnerReferences struct {
 	MetaDataName string
 	OwnerReferenceName string

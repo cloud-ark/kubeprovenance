@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 	"fmt"
+	"strings"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -209,6 +210,74 @@ func (cp *ClusterProvenance) PrintProvenance() {
 			}
 			fmt.Println("============================================")
 		}
+}
+
+func getComposition(kind, name string, compositionTree *[]CompositionTreeNode) Composition {
+	var provenanceString string
+	fmt.Printf("Kind: %s Name: %s Composition:\n", kind, name)
+	provenanceString = "Kind: " + kind + " Name:" + name + " Composition:\n"
+	parentComposition := Composition{}
+	parentComposition.Level = 0
+	parentComposition.Kind = kind
+	parentComposition.Name = name
+	parentComposition.Children = []Composition{}
+	for _, compositionTreeNode := range *compositionTree {
+		level := compositionTreeNode.Level
+		childKind := compositionTreeNode.ChildKind
+		metaDataAndOwnerReferences := compositionTreeNode.Children
+		childComposition := Composition{}
+		for _, metaDataNode := range metaDataAndOwnerReferences {
+			childName := metaDataNode.MetaDataName
+			fmt.Printf("  %d %s %s\n", level, childKind, childName)
+			provenanceString = provenanceString + " " + string(level) + " " + childKind + " " + childName + "\n"
+			childComposition.Level = level
+			childComposition.Kind = childKind
+			childComposition.Name = childName
+		}
+		parentComposition.Children = append(parentComposition.Children, childComposition)
+	}
+	return parentComposition
+}
+
+func (cp *ClusterProvenance) GetProvenance(resourceKind, resourceName string) string {
+	cp.mux.Lock()
+	defer cp.mux.Unlock()
+	var provenanceBytes []byte
+	var provenanceString string
+	compositions := []Composition{}
+	//fmt.Println("Provenance of different Kinds in this Cluster")
+	for _, provenanceItem := range cp.clusterProvenance {
+		kind := strings.ToLower(provenanceItem.Kind)
+		name := strings.ToLower(provenanceItem.Name)
+		compositionTree := provenanceItem.CompositionTree
+		resourceKind := strings.ToLower(resourceKind)
+			//TODO(devdattakulkarni): Make route registration and provenance keyed info
+			//to use same kind name (plural). Currently Provenance info is keyed on
+			//singular kind names. For now, trimming the 's' at the end
+		resourceKind = strings.TrimSuffix(resourceKind, "s") 
+		resourceName := strings.ToLower(resourceName)
+		//fmt.Printf("Kind:%s, Kind:%s, Name:%s, Name:%s\n", kind, resourceKind, name, resourceName)
+		if resourceName == "*" {
+			if resourceKind == kind {
+				composition := getComposition(kind, name, compositionTree)
+					//provenanceInfo = provenanceInfo + provenanceForItem
+				compositions = append(compositions, composition)
+			}
+		} else if resourceKind == kind && resourceName == name {
+			composition := getComposition(kind, name, compositionTree)
+			compositions = append(compositions, composition)
+		}
+	}
+
+	fmt.Println("Compositions:\n%v",compositions)
+	provenanceBytes, err := json.Marshal(compositions)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("\nProvenance Bytes:%v", provenanceBytes)
+	provenanceString = string(provenanceBytes)
+	fmt.Println("\nProvenance String:%s", provenanceString)
+	return provenanceString
 }
 
 // This stores Provenance information in memory. The provenance information will be lost
