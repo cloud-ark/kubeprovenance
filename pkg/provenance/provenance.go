@@ -63,8 +63,9 @@ func CollectProvenance() {
 		provenanceToPrint := false
 		resourceKindList := getResourceKinds()
 		for _, resourceKind := range resourceKindList {
-			resourceNameList := getResourceNames(resourceKind)
-			for _, resourceName := range resourceNameList {
+			topLevelMetaDataOwnerRefList := getResourceNames(resourceKind)
+			for _, topLevelObject := range topLevelMetaDataOwnerRefList {
+				resourceName := topLevelObject.MetaDataName
 				provenanceNeeded := TotalClusterProvenance.checkIfProvenanceNeeded(resourceKind, resourceName)
 				if provenanceNeeded {
 					fmt.Println("###################################")
@@ -72,7 +73,7 @@ func CollectProvenance() {
 					level := 1
 					compositionTree := []CompositionTreeNode{}
 					buildProvenance(resourceKind, resourceName, level, &compositionTree)
-					TotalClusterProvenance.storeProvenance(resourceKind, resourceName, &compositionTree)
+					TotalClusterProvenance.storeProvenance(topLevelObject, resourceKind, resourceName, &compositionTree)
 					fmt.Println("###################################\n")
 					provenanceToPrint = true
 				}
@@ -146,12 +147,13 @@ func getResourceKinds() []string {
 	return resourceKindSlice
 }
 
-func getResourceNames(resourceKind string) []string{
+func getResourceNames(resourceKind string) []MetaDataAndOwnerReferences{
 	resourceApiVersion := kindVersionMap[resourceKind]
 	resourceKindPlural := KindPluralMap[resourceKind]
 	content := getResourceListContent(resourceApiVersion, resourceKindPlural)
 	metaDataAndOwnerReferenceList := parseMetaData(content)
-
+	return metaDataAndOwnerReferenceList
+	/*
 	var resourceNameSlice []string
 	resourceNameSlice = make([]string, 0)
 	for _, metaDataRef := range metaDataAndOwnerReferenceList {
@@ -159,6 +161,7 @@ func getResourceNames(resourceKind string) []string{
 		resourceNameSlice = append(resourceNameSlice, metaDataRef.MetaDataName)
 	}
 	return resourceNameSlice
+	*/
 }
 
 func (cp *ClusterProvenance) PrintProvenance() {
@@ -176,14 +179,15 @@ func (cp *ClusterProvenance) PrintProvenance() {
 				metaDataAndOwnerReferences := compositionTreeNode.Children
 				for _, metaDataNode := range metaDataAndOwnerReferences {
 					childName := metaDataNode.MetaDataName
-					fmt.Printf("  %d %s %s\n", level, childKind, childName)
+					childStatus := metaDataNode.Status
+					fmt.Printf("  %d %s %s %s\n", level, childKind, childName, childStatus)
 				}
 			}
 			fmt.Println("============================================")
 		}
 }
 
-func getComposition(kind, name string, compositionTree *[]CompositionTreeNode) Composition {
+func getComposition(kind, name, status string, compositionTree *[]CompositionTreeNode) Composition {
 	var provenanceString string
 	fmt.Printf("Kind: %s Name: %s Composition:\n", kind, name)
 	provenanceString = "Kind: " + kind + " Name:" + name + " Composition:\n"
@@ -191,6 +195,7 @@ func getComposition(kind, name string, compositionTree *[]CompositionTreeNode) C
 	parentComposition.Level = 0
 	parentComposition.Kind = kind
 	parentComposition.Name = name
+	parentComposition.Status = status
 	parentComposition.Children = []Composition{}
 	for _, compositionTreeNode := range *compositionTree {
 		level := compositionTreeNode.Level
@@ -199,11 +204,13 @@ func getComposition(kind, name string, compositionTree *[]CompositionTreeNode) C
 		childComposition := Composition{}
 		for _, metaDataNode := range metaDataAndOwnerReferences {
 			childName := metaDataNode.MetaDataName
+			childStatus := metaDataNode.Status
 			fmt.Printf("  %d %s %s\n", level, childKind, childName)
 			provenanceString = provenanceString + " " + string(level) + " " + childKind + " " + childName + "\n"
 			childComposition.Level = level
 			childComposition.Kind = childKind
 			childComposition.Name = childName
+			childComposition.Status = childStatus
 		}
 		parentComposition.Children = append(parentComposition.Children, childComposition)
 	}
@@ -220,6 +227,7 @@ func (cp *ClusterProvenance) GetProvenance(resourceKind, resourceName string) st
 	for _, provenanceItem := range cp.clusterProvenance {
 		kind := strings.ToLower(provenanceItem.Kind)
 		name := strings.ToLower(provenanceItem.Name)
+		status := provenanceItem.Status
 		compositionTree := provenanceItem.CompositionTree
 		resourceKind := strings.ToLower(resourceKind)
 		//TODO(devdattakulkarni): Make route registration and provenance keyed info
@@ -230,12 +238,12 @@ func (cp *ClusterProvenance) GetProvenance(resourceKind, resourceName string) st
 		//fmt.Printf("Kind:%s, Kind:%s, Name:%s, Name:%s\n", kind, resourceKind, name, resourceName)
 		if resourceName == "*" {
 			if resourceKind == kind {
-				composition := getComposition(kind, name, compositionTree)
+				composition := getComposition(kind, name, status, compositionTree)
 					//provenanceInfo = provenanceInfo + provenanceForItem
 				compositions = append(compositions, composition)
 			}
 		} else if resourceKind == kind && resourceName == name {
-			composition := getComposition(kind, name, compositionTree)
+			composition := getComposition(kind, name, status, compositionTree)
 			compositions = append(compositions, composition)
 		}
 	}
@@ -252,14 +260,16 @@ func (cp *ClusterProvenance) GetProvenance(resourceKind, resourceName string) st
 }
 
 // This stores Provenance information in memory. The provenance information will be lost
-// when this Pod is deleted. 
-func (cp *ClusterProvenance) storeProvenance(resourceKind string, resourceName string, 
+// when this Pod is deleted.
+func (cp *ClusterProvenance) storeProvenance(topLevelObject MetaDataAndOwnerReferences, 
+	resourceKind string, resourceName string, 
 	compositionTree *[]CompositionTreeNode) {
 	cp.mux.Lock()
 	defer cp.mux.Unlock()
 	provenance := Provenance{
 		Kind: resourceKind,
 		Name: resourceName,
+		Status: topLevelObject.Status,
 		CompositionTree: compositionTree,
 	}
 	cp.clusterProvenance = append(cp.clusterProvenance, provenance)
@@ -384,7 +394,7 @@ func getResourceListContent(resourceApiVersion, resourcePlural string) []byte {
 
 //Ref:https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
 func parseMetaData(content []byte) []MetaDataAndOwnerReferences {
-	//fmt.Println("Entering parseMetaData")
+	fmt.Println("Entering parseMetaData")
 	var result map[string]interface{}
 	json.Unmarshal([]byte(content), &result)
 	// We need to parse following from the result
@@ -400,12 +410,13 @@ func parseMetaData(content []byte) []MetaDataAndOwnerReferences {
 		for _, item := range items {
 			//fmt.Println("=======================")
 			itemConverted := item.(map[string]interface{})
+			var metadataProcessed, statusProcessed bool
+			metaDataRef := MetaDataAndOwnerReferences{}
 			for key, value := range itemConverted {
 				if key == "metadata" {
 					//fmt.Println("----")
 					//fmt.Println(key, value.(interface{}))
 					metadataMap := value.(map[string]interface{})
-					metaDataRef := MetaDataAndOwnerReferences{}
 					for mkey, mvalue := range metadataMap {
 						//fmt.Printf("%v ==> %v\n", mkey, mvalue.(interface{}))
 						if mkey == "ownerReferences" {
@@ -430,12 +441,47 @@ func parseMetaData(content []byte) []MetaDataAndOwnerReferences {
 							metaDataRef.MetaDataName = mvalue.(string)
 						}
 					}
+					metadataProcessed = true
+				}
+				if key == "status" {
+					fmt.Println("1")
+					statusMap := value.(map[string]interface{})
+					var replicas, readyReplicas, availableReplicas float64
+					for skey, svalue := range statusMap {
+						if skey == "phase" {
+							fmt.Println("2")
+							metaDataRef.Status = svalue.(string)
+							fmt.Println(metaDataRef.Status)
+						}
+						if skey == "replicas" {
+							fmt.Println("3")
+							replicas = svalue.(float64)
+						}
+						if skey == "readyReplicas" {
+							fmt.Println("4")
+							readyReplicas = svalue.(float64)
+						}
+						if skey == "availableReplicas" {
+							fmt.Println("5")
+							availableReplicas = svalue.(float64)
+						}
+					}
+					// Trying to be completely sure that we can set READY status
+					if replicas > 0 {
+						if replicas == availableReplicas && replicas == readyReplicas {
+							fmt.Println("6")
+							metaDataRef.Status = "Ready"
+						}
+					}
+					statusProcessed = true
+				}
+				if metadataProcessed && statusProcessed {
 					metaDataSlice = append(metaDataSlice, metaDataRef)
 				}
 			}
 		}
 	}
-	//fmt.Println("Exiting parseMetaData")
+	fmt.Println("Exiting parseMetaData")
 	return metaDataSlice
 }
 
