@@ -32,6 +32,9 @@ The information is stored in memory.
 
 Scripts are provided to help with building the API server container image and deployment/cleanup.
 
+0) Allow Minikube to use local Docker images: eval $(minikube docker-env)
+
+
 1) Build the API Server container image:
 
    `$ ./build-provenance-artifacts.sh`
@@ -67,6 +70,15 @@ kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/replica
 ```
 
 You can use above style of commands with all the Kinds that you have defined in kind_compositions.yaml
+
+
+## Troubleshooting tips:
+
+1) Check that the API server Pod is running: kubectl get pods -n provenance
+
+2) Get the Pod name from output of above command and then check logs of the container.
+   For example:
+   kubectl logs -n provenance kube-provenance-apiserver-klzpc  -c kube-provenance-apiserver
 
 
 ### References:
