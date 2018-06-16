@@ -57,7 +57,7 @@ Once the kubeprovenance API server is running, you can find the dynamic composit
 kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/*/compositions | python -mjson.tool
 ```
 
-./docs/deployments.png
+https://github.com/cloud-ark/kubeprovenance/raw/master/docs/deployments.png
 
 2) Get dynamic composition for a particular deployment
 
@@ -65,7 +65,7 @@ kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deploym
 kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/<dep-name>/compositions | python -mjson.tool
 ```
 
-./docs/hello-minikube-deployment.png
+https://github.com/cloud-ark/kubeprovenance/raw/master/docs/hello-minikube-deployment.png
 
 
 3) Get dynamic composition of all etcdclusters custom resource
@@ -74,7 +74,7 @@ kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deploym
 kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/etcdclusters/*/compositions | python -mjson.tool
 ```
 
-./docs/etcdclusters.png
+https://github.com/cloud-ark/kubeprovenance/raw/master/docs/etcdclusters.png
 
 You can use above style of commands with all the Kinds that you have defined in kind_compositions.yaml
 
