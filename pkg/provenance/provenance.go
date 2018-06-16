@@ -394,7 +394,7 @@ func getResourceListContent(resourceApiVersion, resourcePlural string) []byte {
 
 //Ref:https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
 func parseMetaData(content []byte) []MetaDataAndOwnerReferences {
-	fmt.Println("Entering parseMetaData")
+	//fmt.Println("Entering parseMetaData")
 	var result map[string]interface{}
 	json.Unmarshal([]byte(content), &result)
 	// We need to parse following from the result
@@ -444,32 +444,26 @@ func parseMetaData(content []byte) []MetaDataAndOwnerReferences {
 					metadataProcessed = true
 				}
 				if key == "status" {
-					fmt.Println("1")
 					statusMap := value.(map[string]interface{})
 					var replicas, readyReplicas, availableReplicas float64
 					for skey, svalue := range statusMap {
 						if skey == "phase" {
-							fmt.Println("2")
 							metaDataRef.Status = svalue.(string)
 							fmt.Println(metaDataRef.Status)
 						}
 						if skey == "replicas" {
-							fmt.Println("3")
 							replicas = svalue.(float64)
 						}
 						if skey == "readyReplicas" {
-							fmt.Println("4")
 							readyReplicas = svalue.(float64)
 						}
 						if skey == "availableReplicas" {
-							fmt.Println("5")
 							availableReplicas = svalue.(float64)
 						}
 					}
 					// Trying to be completely sure that we can set READY status
 					if replicas > 0 {
 						if replicas == availableReplicas && replicas == readyReplicas {
-							fmt.Println("6")
 							metaDataRef.Status = "Ready"
 						}
 					}
@@ -481,7 +475,7 @@ func parseMetaData(content []byte) []MetaDataAndOwnerReferences {
 			}
 		}
 	}
-	fmt.Println("Exiting parseMetaData")
+	//fmt.Println("Exiting parseMetaData")
 	return metaDataSlice
 }
 
