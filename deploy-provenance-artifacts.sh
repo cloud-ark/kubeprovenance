@@ -12,6 +12,7 @@ kubectl create configmap -n provenance kind-compositions-config-map --from-file=
 kubectl create -f artifacts/example/sa.yaml -n provenance
 kubectl create -f artifacts/example/auth-delegator.yaml -n kube-system
 kubectl create -f artifacts/example/auth-reader.yaml -n kube-system
+kubectl create -f artifacts/example/grant-cluster-admin.yaml
 kubectl create -f artifacts/example/rc.yaml -n provenance
 kubectl create -f artifacts/example/service.yaml -n provenance
 kubectl create -f artifacts/example/apiservice.yaml

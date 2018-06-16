@@ -8,6 +8,7 @@ kubectl delete ns provenance
 kubectl delete -f artifacts/example/auth-delegator.yaml -n kube-system
 kubectl delete -f artifacts/example/auth-reader.yaml -n kube-system
 kubectl delete -f artifacts/example/apiservice.yaml
+kubectl delete -f artifacts/example/grant-cluster-admin.yaml
 
 #kubectl create ns wardle
 #kubectl create configmap -n wardle kind-compositions-config-map --from-file=kind_compositions.yaml
