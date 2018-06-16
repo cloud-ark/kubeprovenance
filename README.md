@@ -27,6 +27,9 @@ The Provenance information is currently collected for the "default" namespace.
 The information is stored in memory.
 
 
+You can read about various approaches that we tried when building this server [here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22)
+
+
 ## Try it on Minikube
 
 
