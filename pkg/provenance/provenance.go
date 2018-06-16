@@ -70,7 +70,7 @@ func CollectProvenance() {
 				if provenanceNeeded {
 					fmt.Println("###################################")
 					fmt.Printf("Building Provenance for %s %s\n", resourceKind, resourceName)
-					level := 1
+					level := 0
 					compositionTree := []CompositionTreeNode{}
 					buildProvenance(resourceKind, resourceName, level, &compositionTree)
 					TotalClusterProvenance.storeProvenance(topLevelObject, resourceKind, resourceName, &compositionTree)
@@ -330,6 +330,7 @@ func buildProvenance(parentResourceKind string, parentResourceName string, level
 	//fmt.Printf("$$$$$ Building Provenance Level %d $$$$$ \n", level)
 	childResourceKindList, present := compositionMap[parentResourceKind]
 	if present {
+		level = level + 1
 		for _, childResourceKind := range childResourceKindList {
 			childKindPlural := KindPluralMap[childResourceKind]
 			childResourceApiVersion := kindVersionMap[childResourceKind]
@@ -342,7 +343,6 @@ func buildProvenance(parentResourceKind string, parentResourceName string, level
 				Children: childrenList,
 			}
 			*compositionTree = append(*compositionTree, compTreeNode)
-			level = level + 1
 
 			for _, metaDataRef := range childrenList {
 				resourceName := metaDataRef.MetaDataName
