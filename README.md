@@ -22,6 +22,10 @@ Custom Resource Kinds (such as EtcdCluster).
 kubeprovenane API server registers REST endpoints for all the kinds that are defined in the YAML file.
 These endpoints will be accessed by `kubectl get` command when you want to retrieve the dynamic
 composition information (see below). An example YAML file is provided (kind_compositions.yaml).
+There is also kind_compositions.yaml.with-etcd which shows definition for the EtcdCluster custom resource.
+and use this YAML only after you deploy the [Etcd Operator](https://github.com/coreos/etcd-operator)
+(Rename this file to kind_compositions.yaml before deploying the API server).
+
 
 The Provenance information is currently collected for the "default" namespace.
 The information is stored in memory.

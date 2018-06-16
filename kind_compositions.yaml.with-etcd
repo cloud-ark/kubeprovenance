@@ -6,6 +6,10 @@
   plural: replicasets
   endpoint: apis/extensions/v1beta1
   composition: [Pod]
+- kind: EtcdCluster
+  plural: etcdclusters
+  endpoint: apis/etcd.database.coreos.com/v1beta2
+  composition: [Pod, Service]
 - kind: Service
   plural: services
   endpoint: api/v1
