@@ -5,29 +5,29 @@ A Kubernetes Aggregated API Server that shows dynamic composition information fo
 
 ## What is it?
 
-kubeprovenance is a Kubernetes Aggregated API Server that shows dynamic composition information for various Kinds in your cluster. It builds this dynamic composition provenance by continuously tracking compositions for various Objects of different Kinds that are created in your cluster.
+kubeprovenance is a Kubernetes Aggregated API Server that shows dynamic composition information for various Kinds in your cluster. In Kubernetes certain resources are composed of other resources.
+For example, a Deployment is composed of a ReplicaSet which in turn is composed of one or more Pods.
+Today it is not straightforward to find out entire tree of children resources for a given parent resource.
+kubeprovenance API Server solves this problem.
 
 
 ## How does it work?
 
-In Kubernetes certain resources are composed of other resources.
-For example, a Deployment is composed of a ReplicaSet which in turn is composed of one or more Pods.
-Today it is not straight forward to find out entire tree of children resources for a given parent resource.
-kubeprovenance API Server solves this problem.
-
 You provide it a YAML file that defines static composition relationship between different Resources/Kinds.
-Using this information kubeprovenance API Server builds the dynamic provenance information by querying
-the Kubernetes API. The Provenance information is currently stored in memory.
+Using this information kubeprovenance API Server builds the dynamic provenance information by 
+continuously querying the Kubernetes API for various Objects of different Kinds that are created in your cluster.
 
-An example YAML file is provided (kind_composition.yaml).
-It can contain both in-built Kinds (such as Deployment, Pod, Service), and
+The YAML file can contain both in-built Kinds (such as Deployment, Pod, Service), and
 Custom Resource Kinds (such as EtcdCluster).
-
 kubeprovenane API server registers REST endpoints for all the kinds that are defined in the YAML file.
-These endpoints will be accessed by `kubectl get` command (see below).
+These endpoints will be accessed by `kubectl get` command when you want to retrieve the dynamic
+composition information (see below). An example YAML file is provided (kind_composition.yaml).
+
+The Provenance information is currently collected for the "default" namespace.
+The information is stored in memory.
 
 
-## Try it
+## Try it on Minikube
 
 
 Scripts are provided to help with building the API server container image and deployment/cleanup.
