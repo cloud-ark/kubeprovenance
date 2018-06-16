@@ -26,9 +26,12 @@ There is also kind_compositions.yaml.with-etcd which shows definition for the Et
 Use this YAML only after you deploy the [Etcd Operator](https://github.com/coreos/etcd-operator)
 (Rename this file to kind_compositions.yaml before deploying the API server).
 
-
 The Provenance information is currently collected for the "default" namespace.
-The information is stored in memory.
+It is stored in memory. In the future we will store it in the Etcd instance that we run along with
+the API server. We use OwnerReferences to build the dynamic composition tree for Objects.
+For querying the main API server, we use direct REST calls instead of typed clients. 
+This is our only option as we want to be able to query for Objects based on what is defined in kind_compositions.yaml.
+We cannot know what it will contain in advance. So we cannot use typed clients.
 
 
 You can read about various approaches that we tried when building this server [here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22)
