@@ -21,7 +21,7 @@ The YAML file can contain both in-built Kinds (such as Deployment, Pod, Service)
 Custom Resource Kinds (such as EtcdCluster).
 kubeprovenane API server registers REST endpoints for all the kinds that are defined in the YAML file.
 These endpoints will be accessed by `kubectl get` command when you want to retrieve the dynamic
-composition information (see below). An example YAML file is provided (kind_composition.yaml).
+composition information (see below). An example YAML file is provided (kind_compositions.yaml).
 
 The Provenance information is currently collected for the "default" namespace.
 The information is stored in memory.
@@ -45,7 +45,7 @@ Scripts are provided to help with building the API server container image and de
     `$ ./delete-provenance-artifacts.sh`
 
 
-Once the kubeprovenance API server is running, you can find the dynamic composition information by using following commands:
+Once the kubeprovenance API server is running, you can find the dynamic composition information by using following type of commands:
 
 
 1) Get dynamic composition for all deployments
@@ -65,3 +65,10 @@ kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deploym
 ```
 kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/replicasets/*/compositions | python -mjson.tool
 ```
+
+You can use above style of commands with all the Kinds that you have defined in kind_compositions.yaml
+
+
+### References:
+
+The Aggregated API Server has been developed by refering to the [sample-apiserver](https://github.com/kubernetes/sample-apiserver)
