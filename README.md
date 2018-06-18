@@ -1,14 +1,18 @@
 # kubeprovenance
 
-A Kubernetes Aggregated API Server that shows dynamic composition information for various Kinds in your cluster.
+A Kubernetes Aggregated API Server that provides provenance information for your cluster.
 
 
 ## What is it?
 
-kubeprovenance is a Kubernetes Aggregated API Server that shows dynamic composition information for various Kinds in your cluster. In Kubernetes certain resources are composed of other resources.
-For example, a Deployment is composed of a ReplicaSet which in turn is composed of one or more Pods.
+kubeprovenance is a tool that helps you find information about different provenance characteristics
+for your cluster. An example of a provenance characteristic is dynamic composition of Kubernetes Objects. 
+In Kubernetes there are top-level resources that are composed of other resources. 
+For example, a Deployment is composed of a ReplicaSet which in turn is composed of one or more Pods. 
 Today it is not straightforward to find out entire tree of children resources for a given parent resource.
-kubeprovenance API Server solves this problem.
+
+kubeprovenance is a Kubernetes Aggregated API Server that solves this problem by showing
+dynamic composition information for various Kinds in your cluster. 
 
 
 ## How does it work?
