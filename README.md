@@ -25,7 +25,7 @@ The YAML file can contain both in-built Kinds (such as Deployment, Pod, Service)
 Custom Resource Kinds (such as EtcdCluster).
 kubeprovenane API server registers REST endpoints for all the kinds that are defined in the YAML file.
 These endpoints will be accessed by `kubectl get` command when you want to retrieve the dynamic
-composition information (see below). An example YAML file is provided (kind_compositions.yaml).
+composition information (see examples below). An example YAML file is provided (kind_compositions.yaml).
 There is also kind_compositions.yaml.with-etcd which shows definition for the EtcdCluster custom resource.
 Use this YAML only after you deploy the [Etcd Operator](https://github.com/coreos/etcd-operator)
 (Rename this file to kind_compositions.yaml before deploying the API server).
@@ -34,11 +34,13 @@ The Provenance information is currently collected for the "default" namespace.
 It is stored in memory. In the future we will store it in the Etcd instance that we run along with
 the API server. We use OwnerReferences to build the dynamic composition tree for Objects.
 For querying the main API server, we use direct REST calls instead of typed clients. 
-This is our only option as we want to be able to query for Objects based on what is defined in kind_compositions.yaml.
-We cannot know what it will contain in advance. So we cannot use typed clients.
+Note that this is the only option that we can use as we want to be able to query for Objects 
+based on what is defined in kind_compositions.yaml.
+Since we won't know what will be defined in this file in advance, we cannot use typed clients inside
+kubeprovenance to query the main API server to build the dynamic composition tree.
 
-
-You can read about various approaches that we tried when building this server [here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22)
+In building this API server we tried several approaches. You can read about our experience  
+[here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22).
 
 
 ## Try it on Minikube
@@ -55,7 +57,7 @@ Scripts are provided to help with building the API server container image and de
 
    `$ ./build-provenance-artifacts.sh`
 
-2) Deploy the kubeprovenance API Server in your cluster:
+2) Deploy the API Server in your cluster:
 
    `$ ./deploy-provenance-artifacts.sh`
 
@@ -110,4 +112,5 @@ You can use above style of commands with all the Kinds that you have defined in 
 
 ### References:
 
-The Aggregated API Server has been developed by refering to the [sample-apiserver](https://github.com/kubernetes/sample-apiserver)
+The Aggregated API Server has been developed by refering to [sample-apiserver](https://github.com/kubernetes/sample-apiserver)
+and [custom-metrics-apiserver](https://github.com/kubernetes-incubator/custom-metrics-apiserver).
