@@ -1,24 +1,37 @@
-# kubeprovenance
+# kubediscovery
 
-A Kubernetes Aggregated API Server that provides provenance information for your cluster.
+A Kubernetes Aggregated API Server that helps with discovery of dynamic information about your cluster.
 
 
 ## What is it?
 
-kubeprovenance is a tool that helps you find information about different provenance characteristics
-for your cluster. An example of a provenance characteristic is dynamic composition of Kubernetes Objects. 
-In Kubernetes there are top-level resources that are composed of other resources. 
-For example, a Deployment is composed of a ReplicaSet which in turn is composed of one or more Pods. 
-Today it is not straightforward to find out entire tree of children resources for a given parent resource.
+kubediscovery is a tool that helps you find dynamic information about your cluster. 
+Examples of such information include - dynamic composition tree of Kubernetes Objects, current and
+past values of config maps, actions that have been performed within your cluster.
+Today it is not straightforward to find out this information about your cluster.
 
-kubeprovenance is a Kubernetes Aggregated API Server that solves this problem by showing
-dynamic composition information for various Kinds in your cluster. 
+
+kubediscovery is a Kubernetes Aggregated API Server that solves this problem.
+The information obtained from kubediscovery can be used to determine how your cluster
+has evolved over time (its provenance/lineage). 
+Using this information one can answer questions such as:
+
+- How many deployments have occurred on a cluster?
+
+- What actions have been executed on a cluster?
+
+- How configuration values have changed over time?
+
+Current kubediscovery supports showing dynamic composition tree of Kubernetes Objects. 
+In Kubernetes there are top-level resources which are composed of other resources. 
+For example, a Deployment is composed of a ReplicaSet which in turn is composed of one or more Pods. 
+Using kubediscovery you can find out this information easily today.
 
 
 ## How does it work?
 
 You provide it a YAML file that defines static composition relationship between different Resources/Kinds.
-Using this information kubeprovenance API Server builds the dynamic provenance information by 
+Using this information kubediscovery API Server builds the dynamic composition information by 
 continuously querying the Kubernetes API for various Objects of different Kinds that are created in your cluster.
 
 The YAML file can contain both in-built Kinds (such as Deployment, Pod, Service), and
@@ -30,14 +43,14 @@ There is also kind_compositions.yaml.with-etcd which shows definition for the Et
 Use this YAML only after you deploy the [Etcd Operator](https://github.com/coreos/etcd-operator)
 (Rename this file to kind_compositions.yaml before deploying the API server).
 
-The Provenance information is currently collected for the "default" namespace.
+The dynamic composition information is currently collected for the "default" namespace.
 It is stored in memory. In the future we will store it in the Etcd instance that we run along with
 the API server. We use OwnerReferences to build the dynamic composition tree for Objects.
 For querying the main API server, we use direct REST calls instead of typed clients. 
 Note that this is the only option that we can use as we want to be able to query for Objects 
 based on what is defined in kind_compositions.yaml.
 Since we won't know what will be defined in this file in advance, we cannot use typed clients inside
-kubeprovenance to query the main API server to build the dynamic composition tree.
+kubediscovery to query the main API server to build the dynamic composition tree.
 
 In building this API server we tried several approaches. You can read about our experience  
 [here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22).
@@ -66,7 +79,7 @@ Scripts are provided to help with building the API server container image and de
     `$ ./delete-provenance-artifacts.sh`
 
 
-Once the kubeprovenance API server is running, you can find the dynamic composition information by using following type of commands:
+Once the kubediscovery API server is running, you can find the dynamic composition information by using following type of commands:
 
 
 1) Get dynamic composition for all deployments
