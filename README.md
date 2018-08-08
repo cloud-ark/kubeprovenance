@@ -79,37 +79,37 @@ Scripts are provided to help with building the API server container image and de
     `$ ./delete-provenance-artifacts.sh`
 
 
-Once the kubediscovery API server is running, you can find the dynamic composition information by using following type of commands:
+Once the kubediscovery API server is running, you can find provenance information by using following type of commands:
 
-
-1) Get dynamic composition for all deployments
-
-```
-kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/*/compositions | python -mjson.tool
-```
-
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/deployments.png)
-
-
-2) Get dynamic composition for a particular deployment
+1) Get list of versions for testobj deployment
 
 ```
-kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/<dep-name>/compositions | python -mjson.tool
+kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/testobj/versions
 ```
 
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/hello-minikube-deployment.png)
-
-
-3) Get dynamic composition of all etcdclusters custom resource
+2) Get Spec history for testobj deployment
 
 ```
-kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/etcdclusters/*/compositions | python -mjson.tool
+kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/testobj/spechistory
 ```
 
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/etcd-clusters.png)
+3) Get diff of Spec for testobj deployment between version v1 and version v2
 
-You can use above style of commands with all the Kinds that you have defined in kind_compositions.yaml
+```
+kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/testobj/diff?start=v1&end=v2
+```
 
+4) Get diff of field abc for testobj deployment between version v1 and version v2
+
+```
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/testobj/diff?start=v1&end=v2&field=abc"
+```
+
+5) Find out which version field abc for testobj deployment was given value def
+
+```
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/testobj/bisect?field=abc&value=def"
+```
 
 ## Troubleshooting tips:
 
