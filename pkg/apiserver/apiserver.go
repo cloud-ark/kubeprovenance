@@ -132,10 +132,26 @@ func installCompositionProvenanceWebService(provenanceServer *ProvenanceServer) 
 		ws.Path(path).
 			Consumes(restful.MIME_JSON, restful.MIME_XML).
 			Produces(restful.MIME_JSON, restful.MIME_XML)
-		getPath := "/{resource-id}/compositions"
-		ws.Route(ws.GET(getPath).To(getCompositions))
+		getPath := "/{resource-id}/versions"
+		fmt.Println("Get Path:" + getPath)
+		ws.Route(ws.GET(getPath).To(getVersions))
+
+		historyPath := "/{resource-id}/spechistory"
+		fmt.Println("History Path:" + historyPath)
+		ws.Route(ws.GET(historyPath).To(getHistory))
+
+		diffPath := "/{resource-id}/diff"
+		fmt.Println("Diff Path:" + diffPath)
+		ws.Route(ws.GET(diffPath).To(getDiff))
+
+		bisectPath := "/{resource-id}/bisect"
+		fmt.Println("Bisect Path:" + bisectPath)
+		ws.Route(ws.GET(bisectPath).To(bisect))
+
 		provenanceServer.GenericAPIServer.Handler.GoRestfulContainer.Add(ws)
+
 	}
+	fmt.Println("Done registering.")
 }
 
 func getWebService() *restful.WebService {
@@ -147,7 +163,7 @@ func getWebService() *restful.WebService {
 	return ws
 }
 
-func getCompositions(request *restful.Request, response *restful.Response) {
+func getVersions(request *restful.Request, response *restful.Response) {
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
 	//fmt.Printf("Printing Provenance\n")
@@ -157,7 +173,90 @@ func getCompositions(request *restful.Request, response *restful.Response) {
 	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
-	provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
+	//provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
+	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
+	fmt.Println(provenanceInfo)
 
 	response.Write([]byte(provenanceInfo))
+}
+
+func getHistory(request *restful.Request, response *restful.Response) {
+	fmt.Println("Inside getHistory")
+	resourceName := request.PathParameter("resource-id")
+	requestPath := request.Request.URL.Path
+	//fmt.Printf("Printing Provenance\n")
+	//provenance.TotalClusterProvenance.PrintProvenance()
+
+	// Path looks as follows:
+	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
+	resourcePathSlice := strings.Split(requestPath, "/")
+	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
+//	provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
+
+	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
+	fmt.Println(provenanceInfo)
+
+	response.Write([]byte(provenanceInfo))
+}
+
+func bisect(request *restful.Request, response *restful.Response) {
+	fmt.Println("Inside bisect")
+	resourceName := request.PathParameter("resource-id")
+	requestPath := request.Request.URL.Path
+	//fmt.Printf("Printing Provenance\n")
+	//provenance.TotalClusterProvenance.PrintProvenance()
+
+	// Path looks as follows:
+	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
+	resourcePathSlice := strings.Split(requestPath, "/")
+	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
+	
+	var provenanceInfo string
+	//provenanceInfo = provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
+	provenanceInfo = "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
+	fmt.Println(provenanceInfo)
+
+	field := request.QueryParameter("field")
+	value := request.QueryParameter("value")
+
+	provenanceInfo = provenanceInfo + " Field:" + field + " Value:" + value 
+
+	fmt.Println("ProvenanceInfo:%v", provenanceInfo)
+
+	response.Write([]byte(provenanceInfo))
+}
+
+
+func getDiff(request *restful.Request, response *restful.Response) {
+	fmt.Println("Inside getDiff")
+	resourceName := request.PathParameter("resource-id")
+	requestPath := request.Request.URL.Path
+
+	// Path looks as follows:
+	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
+	resourcePathSlice := strings.Split(requestPath, "/")
+	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
+
+	fmt.Println("Resource Name:%s, Resource Kind:%s", resourceName, resourceKind)
+
+	start := request.QueryParameter("start")
+	end := request.QueryParameter("end")
+	field := request.QueryParameter("field")
+
+	var diffInfo string
+	if ( start == "" || end == "" ) {
+		fmt.Println("Start:%s", start)
+		fmt.Println("End:%s", end)
+		diffInfo = "start and end query parameters missing\n"
+	} else {
+		fmt.Println("Start:%s", start)
+		fmt.Println("End:%s", end)
+		if field != "" {
+			fmt.Println("Diff for Field requested. Field:%s", field)
+		} else {
+			fmt.Println("Diff for Spec requested.")
+		}
+		diffInfo = "This is Diff Info: " + start + " " + end + " " + field
+	}
+	response.Write([]byte(diffInfo))
 }
