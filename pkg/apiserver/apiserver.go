@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/emicklei/go-restful"
@@ -196,6 +197,7 @@ func getHistory(request *restful.Request, response *restful.Response) {
 	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind + "\n"
 	response.Write([]byte(provenanceInfo))
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+
 	//TODO: Validate request based on the correct namespace and the correct plural type. right now
 	//deployments is sort of just ignored intentionally. I have the namespace/pluralkind data
 	//in my ProvenanceOfObject struct so it is easy to make these changes later
@@ -232,7 +234,7 @@ func bisect(request *restful.Request, response *restful.Response) {
 
 	provenanceInfo = provenanceInfo + " Field:" + field + " Value:" + value
 
-	fmt.Println("ProvenanceInfo:%v", provenanceInfo)
+	fmt.Printf("ProvenanceInfo:%v", provenanceInfo)
 
 	response.Write([]byte(provenanceInfo))
 }
@@ -247,26 +249,48 @@ func getDiff(request *restful.Request, response *restful.Response) {
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
 
-	fmt.Println("Resource Name:%s, Resource Kind:%s", resourceName, resourceKind)
+	fmt.Printf("Resource Name:%s, Resource Kind:%s", resourceName, resourceKind)
 
-	start := request.QueryParameter("start")
-	end := request.QueryParameter("end")
+	start := request.QueryParameter("start")[1:] //drop the v
+	end := request.QueryParameter("end")[1:]     // drop the v
 	field := request.QueryParameter("field")
+	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+
+	if intendedProvObj == nil {
+		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
+		response.Write([]byte(s))
+		return
+	}
 
 	var diffInfo string
 	if start == "" || end == "" {
-		fmt.Println("Start:%s", start)
-		fmt.Println("End:%s", end)
-		diffInfo = "start and end query parameters missing\n"
+		fmt.Printf("Start:%s", start)
+		fmt.Printf("End:%s", end)
+		diffInfo = "Start and end query parameters missing\n"
 	} else {
-		fmt.Println("Start:%s", start)
-		fmt.Println("End:%s", end)
+		fmt.Printf("Start:%s", start)
+		fmt.Printf("End:%s", end)
+		startInt, err := strconv.Atoi(start)
+
+		if err != nil {
+			s := fmt.Sprintf("Could not parse start query parameter to int: %s", err.Error())
+			response.Write([]byte(s))
+			return
+		}
+		endInt, err := strconv.Atoi(end)
+		if err != nil {
+			s := fmt.Sprintf("Could not parse end query parameter to int: %s", err.Error())
+			response.Write([]byte(s))
+			return
+		}
+
 		if field != "" {
-			fmt.Println("Diff for Field requested. Field:%s", field)
+			fmt.Printf("Diff for Field requested. Field:%s", field)
+			diffInfo = intendedProvObj.ObjectFullHistory.FieldDiff(field, startInt, endInt)
 		} else {
 			fmt.Println("Diff for Spec requested.")
+			diffInfo = intendedProvObj.ObjectFullHistory.FullDiff(startInt, endInt)
 		}
-		diffInfo = "This is Diff Info: " + start + " " + end + " " + field
 	}
 	response.Write([]byte(diffInfo))
 }
