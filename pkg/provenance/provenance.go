@@ -73,6 +73,10 @@ type ProvenanceOfObject struct {
 func CollectProvenance() {
 	// fmt.Println("Inside CollectProvenance")
 	// for {
+
+	//right now the way you set up the rest api depends on this compositionfile, so
+	//postgreses type is not specified in it, so I do not think it would work for
+	//crds like postgres right now
 	readKindCompositionFile()
 	parse()
 	// 	time.Sleep(time.Second * 5)
@@ -158,10 +162,10 @@ func (o ObjectLineage) SpecHistory() []string {
 
 //add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) []Spec {
-	s := make([]Spec, len(o))
+	s := make([]Spec, vNumEnd-vNumStart+1)
 	for v, spec := range o {
 		if v >= vNumStart && v <= vNumEnd {
-			s[v-1] = spec
+			s[v-vNumStart] = spec
 		}
 	}
 	return s

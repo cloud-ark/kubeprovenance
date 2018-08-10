@@ -193,9 +193,12 @@ func getHistory(request *restful.Request, response *restful.Response) {
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
 	//	provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
 
-	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
+	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind + "\n"
 	response.Write([]byte(provenanceInfo))
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+	//TODO: Validate request based on the correct namespace and the correct plural type. right now
+	//deployments is sort of just ignored intentionally. I have the namespace/pluralkind data
+	//in my ProvenanceOfObject struct so it is easy to make these changes later
 	if intendedProvObj == nil {
 		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
 		response.Write([]byte(s))
