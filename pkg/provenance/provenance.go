@@ -31,13 +31,13 @@ var (
 	SERVICE      string
 	ETCD_CLUSTER string
 
-	ObjectFullProvenance Object
+	AllProvenanceObjects []ProvenanceOfObject
 )
 
 type Event v1beta1.Event
 
 //for example a postgres
-type Object map[int]Spec
+type ObjectLineage map[int]Spec
 type Spec struct {
 	attributeToData map[string]string
 }
@@ -60,9 +60,14 @@ func init() {
 	KindPluralMap = make(map[string]string)
 	kindVersionMap = make(map[string]string)
 	compositionMap = make(map[string][]string, 0)
+	AllProvenanceObjects = make([]ProvenanceOfObject, 0)
 
-	ObjectFullProvenance = make(map[int]Spec) //need to generalize for other ObjectFullProvenances
+}
 
+type ProvenanceOfObject struct {
+	ObjectFullHistory ObjectLineage
+	ResourcePlural    string
+	Name              string
 }
 
 func CollectProvenance() {
@@ -94,10 +99,25 @@ func readKindCompositionFile() {
 	}
 }
 
+func NewProvenanceOfObject() *ProvenanceOfObject {
+	var s ProvenanceOfObject
+	s.ObjectFullHistory = make(map[int]Spec) //need to generalize for other ObjectFullProvenances
+	return &s
+}
+
 func NewSpec() *Spec {
 	var s Spec
 	s.attributeToData = make(map[string]string)
 	return &s
+}
+
+func FindProvenanceObjectByName(name string, allObjects []ProvenanceOfObject) *ProvenanceOfObject {
+	for _, value := range allObjects {
+		if name == value.Name {
+			return &value
+		}
+	}
+	return nil
 }
 
 func (s *Spec) String() string {
@@ -108,7 +128,7 @@ func (s *Spec) String() string {
 	return b.String()
 }
 
-func (o Object) String() string {
+func (o ObjectLineage) String() string {
 	var b strings.Builder
 	for version, spec := range o {
 		fmt.Fprintf(&b, "Version: %d Data: %s\n", version, spec.String())
@@ -116,18 +136,18 @@ func (o Object) String() string {
 	return b.String()
 }
 
-func (o Object) LatestVersion(vNum int) int {
+func (o ObjectLineage) LatestVersion(vNum int) int {
 	return len(o)
 }
 
-func (o Object) Version(vNum int) Spec {
+func (o ObjectLineage) Version(vNum int) Spec {
 	return o[vNum]
 }
 
 //what happens if I delete the object?
 //need to delete the ObjectFullProvenance for the object
 //add type of ObjectFullProvenance, postgreses for example
-func (o Object) SpecHistory() []string {
+func (o ObjectLineage) SpecHistory() []string {
 	s := make([]string, len(o))
 	for v, spec := range o {
 		s[v-1] = spec.String()
@@ -136,7 +156,7 @@ func (o Object) SpecHistory() []string {
 }
 
 //add type of ObjectFullProvenance, postgreses for example
-func (o Object) SpecHistoryInterval(vNumStart, vNumEnd int) []Spec {
+func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) []Spec {
 	s := make([]Spec, len(o))
 	for v, spec := range o {
 		if v >= vNumStart && v <= vNumEnd {
@@ -147,7 +167,7 @@ func (o Object) SpecHistoryInterval(vNumStart, vNumEnd int) []Spec {
 }
 
 //add type of ObjectFullProvenance, postgreses for example
-func (o Object) FullDiff(vNumStart, vNumEnd int) string {
+func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	var b strings.Builder
 	sp1 := o[vNumStart]
 	sp2 := o[vNumEnd]
@@ -178,7 +198,7 @@ func (o Object) FullDiff(vNumStart, vNumEnd int) string {
 }
 
 //add type of ObjectFullProvenance, postgreses for example
-func (o Object) FieldDiff(fieldName string, vNumStart, vNumEnd int) string {
+func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) string {
 	var b strings.Builder
 	data1, ok1 := o[vNumStart].attributeToData[fieldName]
 	data2, ok2 := o[vNumEnd].attributeToData[fieldName]
@@ -231,9 +251,26 @@ func parse() {
 			fmt.Println(s)
 		}
 
-		requestobj := event.RequestObject
+		var resourcePlural string
+		var nameOfObject string
+		// var namespace string
 
-		ParseRequestObject(requestobj.Raw)
+		//parse objectRef for unique object identifier and other fields
+		resourcePlural = event.ObjectRef.Resource
+		nameOfObject = event.ObjectRef.Name
+		// namespace = event.ObjectReference.Namespace
+		provObjPtr := FindProvenanceObjectByName(nameOfObject, AllProvenanceObjects)
+		if provObjPtr == nil {
+			//couldnt find object by name, make new provenance object bc This must be new
+			provObjPtr = NewProvenanceOfObject()
+			provObjPtr.ResourcePlural = resourcePlural
+			provObjPtr.Name = nameOfObject
+			AllProvenanceObjects = append(AllProvenanceObjects, *provObjPtr)
+		}
+
+		requestobj := event.RequestObject
+		//now parse the spec into this provenanceObject that we found or created
+		ParseRequestObject(provObjPtr, requestobj.Raw)
 	}
 	if err := scanner.Err(); err != nil {
 		panic(err)
@@ -241,7 +278,7 @@ func parse() {
 	fmt.Println("Done parsing.")
 }
 
-func ParseRequestObject(requestObjBytes []byte) {
+func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []byte) {
 	fmt.Println("entering parse request")
 
 	var result map[string]interface{}
@@ -267,29 +304,27 @@ func ParseRequestObject(requestObjBytes []byte) {
 	}
 	l3, ok := l2["kubectl.kubernetes.io/last-applied-configuration"].(string)
 	if !ok {
-		fmt.Println("b")
-		fmt.Println(l3)
+		// fmt.Println("b")
+		// fmt.Println(l3)
 		fmt.Println("Incorrect parsing of the auditEvent.requestObj.metadata")
 	}
 	in := []byte(l3)
 	var raw map[string]interface{}
 	json.Unmarshal(in, &raw)
 	spec, ok := raw["spec"].(map[string]interface{})
-	fmt.Println("c")
-	fmt.Println(spec)
+	// fmt.Println("c")
+	// fmt.Println(spec)
 	if ok {
 		fmt.Println("Successfully parsed")
 	}
-
-	saveProvenance(spec)
-
+	newVersion := len(objectProvenance.ObjectFullHistory) + 1
+	newSpec := buildSpec(spec)
+	objectProvenance.ObjectFullHistory[newVersion] = newSpec
 	fmt.Println("exiting parse request")
 }
-func saveProvenance(spec map[string]interface{}) {
+func buildSpec(spec map[string]interface{}) Spec {
 	mySpec := *NewSpec()
-	newVersion := 1 + len(ObjectFullProvenance)
 	for attribute, value := range spec {
-		fmt.Println(value)
 		bytes, err := json.MarshalIndent(value, "", "    ")
 		if err != nil {
 			fmt.Println("Error could not marshal json: " + err.Error())
@@ -297,7 +332,7 @@ func saveProvenance(spec map[string]interface{}) {
 		attributeData := string(bytes)
 		mySpec.attributeToData[attribute] = attributeData
 	}
-	ObjectFullProvenance[newVersion] = mySpec
+	return mySpec
 }
 
 func printMaps() {
