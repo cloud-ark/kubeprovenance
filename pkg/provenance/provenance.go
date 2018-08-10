@@ -122,8 +122,9 @@ func FindProvenanceObjectByName(name string, allObjects []ProvenanceOfObject) *P
 
 func (s *Spec) String() string {
 	var b strings.Builder
+
 	for attribute, data := range s.attributeToData {
-		fmt.Fprintf(&b, "Attribute: %s Data: %s\n", attribute, data)
+		fmt.Fprintf(&b, "%s: %s\n", attribute, data)
 	}
 	return b.String()
 }

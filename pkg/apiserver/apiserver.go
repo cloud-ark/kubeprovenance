@@ -195,9 +195,14 @@ func getHistory(request *restful.Request, response *restful.Response) {
 
 	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
 	response.Write([]byte(provenanceInfo))
-	specStrings := provenance.ObjectFullProvenance.SpecHistory()
-	for _, str := range specStrings {
-		response.Write([]byte(str))
+	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+	if intendedProvObj == nil {
+		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
+		response.Write([]byte(s))
+	} else {
+		for _, str := range intendedProvObj.ObjectFullHistory.SpecHistory() {
+			response.Write([]byte(str))
+		}
 	}
 
 }
