@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/emicklei/go-restful"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/version"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"github.com/emicklei/go-restful"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
@@ -21,11 +21,11 @@ const GroupName = "kubeprovenance.cloudark.io"
 const GroupVersion = "v1"
 
 var (
-	Scheme = runtime.NewScheme()
-	Codecs = serializer.NewCodecFactory(Scheme)
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme   = SchemeBuilder.AddToScheme
-    SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
+	Scheme             = runtime.NewScheme()
+	Codecs             = serializer.NewCodecFactory(Scheme)
+	SchemeBuilder      = runtime.NewSchemeBuilder(addKnownTypes)
+	AddToScheme        = SchemeBuilder.AddToScheme
+	SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {
@@ -40,7 +40,7 @@ func init() {
 	utilruntime.Must(Scheme.SetVersionPriority(SchemeGroupVersion))
 
 	// TODO(devdattakulkarni) -- Following comments coming from sample-apiserver.
-	// Leaving them for now. 
+	// Leaving them for now.
 	// we need to add the options to empty v1
 	// TODO fix the server code to avoid this
 	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: GroupVersion})
@@ -191,12 +191,15 @@ func getHistory(request *restful.Request, response *restful.Response) {
 	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
-//	provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
+	//	provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
 
 	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
-	fmt.Println(provenanceInfo)
-
 	response.Write([]byte(provenanceInfo))
+	specStrings := provenance.ObjectFullProvenance.SpecHistory()
+	for _, str := range specStrings {
+		response.Write([]byte(str))
+	}
+
 }
 
 func bisect(request *restful.Request, response *restful.Response) {
@@ -210,7 +213,7 @@ func bisect(request *restful.Request, response *restful.Response) {
 	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
-	
+
 	var provenanceInfo string
 	//provenanceInfo = provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
 	provenanceInfo = "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
@@ -219,13 +222,12 @@ func bisect(request *restful.Request, response *restful.Response) {
 	field := request.QueryParameter("field")
 	value := request.QueryParameter("value")
 
-	provenanceInfo = provenanceInfo + " Field:" + field + " Value:" + value 
+	provenanceInfo = provenanceInfo + " Field:" + field + " Value:" + value
 
 	fmt.Println("ProvenanceInfo:%v", provenanceInfo)
 
 	response.Write([]byte(provenanceInfo))
 }
-
 
 func getDiff(request *restful.Request, response *restful.Response) {
 	fmt.Println("Inside getDiff")
@@ -244,7 +246,7 @@ func getDiff(request *restful.Request, response *restful.Response) {
 	field := request.QueryParameter("field")
 
 	var diffInfo string
-	if ( start == "" || end == "" ) {
+	if start == "" || end == "" {
 		fmt.Println("Start:%s", start)
 		fmt.Println("End:%s", end)
 		diffInfo = "start and end query parameters missing\n"
