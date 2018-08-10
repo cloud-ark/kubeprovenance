@@ -205,7 +205,7 @@ func (o Object) FieldDiff(fieldName string, vNumStart, vNumEnd int) string {
 //Ref:https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
 func parse() {
 
-	if _, err := os.Stat("kube-apiserver-audit.log"); os.IsNotExist(err) {
+	if _, err := os.Stat("/tmp/kube-apiserver-audit.log"); os.IsNotExist(err) {
 		fmt.Println(fmt.Sprintf("could not stat the path %s", err))
 		panic(err)
 	}
