@@ -60,6 +60,9 @@ func init() {
 	KindPluralMap = make(map[string]string)
 	kindVersionMap = make(map[string]string)
 	compositionMap = make(map[string][]string, 0)
+
+	ObjectFullProvenance = make(map[int]Spec) //need to generalize for other ObjectFullProvenances
+
 }
 
 func CollectProvenance() {
@@ -245,23 +248,35 @@ func ParseRequestObject(requestObjBytes []byte) {
 	json.Unmarshal([]byte(requestObjBytes), &result)
 
 	l1, ok := result["metadata"].(map[string]interface{})
+
+	l2, ok := l1["annotations"].(map[string]interface{})
 	if !ok {
-		sp, _ := result["spec"].(map[string]interface{})
+		//sp, _ := result["spec"].(map[string]interface{})
 		//TODO: for the case where a crd ObjectFullProvenance is first created, like initialize,
 		//the metadata spec is empty. instead the spec field has the data
-		fmt.Println(sp)
+		//from the requestobjbytes:  metadata:map[creationTimestamp:<nil> name:client25 namespace:default]
+		//instead of "requestObject":{
+		//  "metadata":{
+		//     "annotations":{
+		//        "kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"postgrescontroller.kubeplus/v1\",\"kind\":\"Postgres\",\"metadata\":{\"annotations\":{},\"name\":\"client25\",\"namespace\":\"default\"},\"spec\":{\"databases\":[\"moodle\",\"wordpress\"],\"deploymentName\":\"client25\",\"image\":\"postgres:9.3\",\"replicas\":1,\"users\":[{\"password\":\"pass123\",\"username\":\"devdatta\"},{\"password\":\"pass123\",\"username\":\"pallavi\"}]}}\n"
+		//     }
+		//  },
+		//fmt.Println("a: not ok") //hits here
+		//fmt.Println(sp)
 		return
 	}
-	l2, ok := l1["annotations"].(map[string]interface{})
 	l3, ok := l2["kubectl.kubernetes.io/last-applied-configuration"].(string)
 	if !ok {
+		fmt.Println("b")
+		fmt.Println(l3)
 		fmt.Println("Incorrect parsing of the auditEvent.requestObj.metadata")
 	}
 	in := []byte(l3)
 	var raw map[string]interface{}
 	json.Unmarshal(in, &raw)
 	spec, ok := raw["spec"].(map[string]interface{})
-
+	fmt.Println("c")
+	fmt.Println(spec)
 	if ok {
 		fmt.Println("Successfully parsed")
 	}
@@ -274,6 +289,7 @@ func saveProvenance(spec map[string]interface{}) {
 	mySpec := *NewSpec()
 	newVersion := 1 + len(ObjectFullProvenance)
 	for attribute, value := range spec {
+		fmt.Println(value)
 		bytes, err := json.MarshalIndent(value, "", "    ")
 		if err != nil {
 			fmt.Println("Error could not marshal json: " + err.Error())
