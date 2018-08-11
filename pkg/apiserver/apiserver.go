@@ -205,9 +205,7 @@ func getHistory(request *restful.Request, response *restful.Response) {
 		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
 		response.Write([]byte(s))
 	} else {
-		for _, str := range intendedProvObj.ObjectFullHistory.SpecHistory() {
-			response.Write([]byte(str))
-		}
+		response.Write([]byte(intendedProvObj.ObjectFullHistory.SpecHistory()))
 	}
 
 }
@@ -251,8 +249,8 @@ func getDiff(request *restful.Request, response *restful.Response) {
 
 	fmt.Printf("Resource Name:%s, Resource Kind:%s", resourceName, resourceKind)
 
-	start := request.QueryParameter("start")[1:] //drop the v
-	end := request.QueryParameter("end")[1:]     // drop the v
+	start := request.QueryParameter("start")
+	end := request.QueryParameter("end")
 	field := request.QueryParameter("field")
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
 

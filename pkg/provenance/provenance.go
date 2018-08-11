@@ -39,7 +39,8 @@ type Event v1beta1.Event
 //for example a postgres
 type ObjectLineage map[int]Spec
 type Spec struct {
-	attributeToData map[string]string
+	AttributeToData map[string]string
+	Version         int
 }
 
 func init() {
@@ -111,7 +112,7 @@ func NewProvenanceOfObject() *ProvenanceOfObject {
 
 func NewSpec() *Spec {
 	var s Spec
-	s.attributeToData = make(map[string]string)
+	s.AttributeToData = make(map[string]string)
 	return &s
 }
 
@@ -126,8 +127,8 @@ func FindProvenanceObjectByName(name string, allObjects []ProvenanceOfObject) *P
 
 func (s *Spec) String() string {
 	var b strings.Builder
-
-	for attribute, data := range s.attributeToData {
+	fmt.Fprintf(&b, "Version: %d\n", s.Version)
+	for attribute, data := range s.AttributeToData {
 		fmt.Fprintf(&b, "%s: %s\n", attribute, data)
 	}
 	return b.String()
@@ -141,23 +142,28 @@ func (o ObjectLineage) String() string {
 	return b.String()
 }
 
-func (o ObjectLineage) LatestVersion(vNum int) int {
+func (o ObjectLineage) LatestVersion() int {
 	return len(o)
 }
 
-func (o ObjectLineage) Version(vNum int) Spec {
-	return o[vNum]
+func (o ObjectLineage) GetVersion() string {
+	arr := make([]string, 0)
+	versions := o.LatestVersion()
+	for index := 1; index <= versions; index++ {
+		arr = append(arr, string(index))
+	}
+	return "[" + strings.Join(arr, ",") + "]"
 }
 
 //what happens if I delete the object?
 //need to delete the ObjectFullProvenance for the object
 //add type of ObjectFullProvenance, postgreses for example
-func (o ObjectLineage) SpecHistory() []string {
+func (o ObjectLineage) SpecHistory() string {
 	s := make([]string, len(o))
 	for v, spec := range o {
 		s[v-1] = spec.String()
 	}
-	return s
+	return strings.Join(s, "\n")
 }
 
 //add type of ObjectFullProvenance, postgreses for example
@@ -176,8 +182,8 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	var b strings.Builder
 	sp1 := o[vNumStart]
 	sp2 := o[vNumEnd]
-	for attribute, data1 := range sp1.attributeToData {
-		if data2, ok := sp2.attributeToData[attribute]; ok {
+	for attribute, data1 := range sp1.AttributeToData {
+		if data2, ok := sp2.AttributeToData[attribute]; ok {
 			if data1 != data2 {
 				fmt.Fprintf(&b, "FOUND DIFF")
 				fmt.Fprintf(&b, "Spec version %d:\n %s\n", vNumStart, data1)
@@ -192,8 +198,8 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 		}
 	}
 	//for the case where a key exists in spec 2 that doesn't exist in spec 1
-	for attribute, data1 := range sp2.attributeToData {
-		if _, ok := sp2.attributeToData[attribute]; !ok {
+	for attribute, data1 := range sp2.AttributeToData {
+		if _, ok := sp2.AttributeToData[attribute]; !ok {
 			fmt.Fprintf(&b, "FOUND DIFF")
 			fmt.Fprintf(&b, "Spec version %d:\n %s\n", vNumStart, "No attribute found.")
 			fmt.Fprintf(&b, "Spec version %d:\n %s\n", vNumEnd, data1)
@@ -205,8 +211,8 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 //add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) string {
 	var b strings.Builder
-	data1, ok1 := o[vNumStart].attributeToData[fieldName]
-	data2, ok2 := o[vNumEnd].attributeToData[fieldName]
+	data1, ok1 := o[vNumStart].AttributeToData[fieldName]
+	data2, ok2 := o[vNumEnd].AttributeToData[fieldName]
 	switch {
 	case ok1 && ok2:
 		if data1 != data2 {
@@ -324,6 +330,7 @@ func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 	}
 	newVersion := len(objectProvenance.ObjectFullHistory) + 1
 	newSpec := buildSpec(spec)
+	newSpec.Version = newVersion
 	objectProvenance.ObjectFullHistory[newVersion] = newSpec
 	fmt.Println("exiting parse request")
 }
@@ -335,7 +342,7 @@ func buildSpec(spec map[string]interface{}) Spec {
 			fmt.Println("Error could not marshal json: " + err.Error())
 		}
 		attributeData := string(bytes)
-		mySpec.attributeToData[attribute] = attributeData
+		mySpec.AttributeToData[attribute] = attributeData
 	}
 	return mySpec
 }
