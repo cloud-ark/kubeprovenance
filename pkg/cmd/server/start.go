@@ -1,4 +1,4 @@
-package server
+package serverstrings
 
 import (
 	"fmt"
@@ -7,23 +7,23 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cloud-ark/kubeprovenance/pkg/apiserver"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
-	"github.com/cloud-ark/kubeprovenance/pkg/apiserver"
 )
 
 const defaultEtcdPathPrefix = "/registry/kubeprovenance.clouarark.io"
 
 type ProvenanceServerOptions struct {
 	RecommendedOptions *genericoptions.RecommendedOptions
-	StdOut                io.Writer
-	StdErr                io.Writer
+	StdOut             io.Writer
+	StdErr             io.Writer
 }
 
 func NewProvenanceServerOptions(out, errOut io.Writer) *ProvenanceServerOptions {
 	o := &ProvenanceServerOptions{
-		RecommendedOptions: genericoptions.NewRecommendedOptions(defaultEtcdPathPrefix, 
+		RecommendedOptions: genericoptions.NewRecommendedOptions(defaultEtcdPathPrefix,
 			apiserver.Codecs.LegacyCodec(apiserver.SchemeGroupVersion)),
 		StdOut: out,
 		StdErr: errOut,

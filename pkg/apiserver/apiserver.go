@@ -223,11 +223,20 @@ func bisect(request *restful.Request, response *restful.Response) {
 	field := request.QueryParameter("field")
 	value := request.QueryParameter("value")
 
-	provenanceInfo = provenanceInfo + " Field:" + field + " Value:" + value
+	provenanceInfo = provenanceInfo + " Field:" + field + "Value: " + value + "\n"
 
 	fmt.Printf("ProvenanceInfo:%v", provenanceInfo)
 
 	response.Write([]byte(provenanceInfo))
+
+	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+	if intendedProvObj == nil {
+		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
+		response.Write([]byte(s))
+	} else {
+		response.Write([]byte("Version: " + intendedProvObj.ObjectFullHistory.Bisect(field, value)))
+		response.Write([]byte(string("\n")))
+	}
 }
 
 func getDiff(request *restful.Request, response *restful.Response) {

@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 
 	yaml "gopkg.in/yaml.v2"
@@ -43,6 +45,12 @@ type Spec struct {
 	Version         int
 }
 
+type ProvenanceOfObject struct {
+	ObjectFullHistory ObjectLineage
+	ResourcePlural    string
+	Name              string
+}
+
 func init() {
 	serviceHost = os.Getenv("KUBERNETES_SERVICE_HOST")
 	servicePort = os.Getenv("KUBERNETES_SERVICE_PORT")
@@ -63,12 +71,6 @@ func init() {
 	compositionMap = make(map[string][]string, 0)
 	AllProvenanceObjects = make([]ProvenanceOfObject, 0)
 
-}
-
-type ProvenanceOfObject struct {
-	ObjectFullHistory ObjectLineage
-	ResourcePlural    string
-	Name              string
 }
 
 func CollectProvenance() {
@@ -164,6 +166,27 @@ func (o ObjectLineage) SpecHistory() string {
 		s[v-1] = spec.String()
 	}
 	return strings.Join(s, "\n")
+}
+func (o ObjectLineage) Bisect(field, value string) string {
+	s := make([]Spec, 0)
+	for _, spec := range o {
+		s = append(s, spec)
+	}
+	sort.Slice(s, func(i, j int) bool {
+		return s[i].Version < s[i].Version
+	})
+	if len(s) == 1 {
+		//check
+		if s[0].AttributeToData[field] == value {
+			return strconv.Itoa(1)
+		}
+	}
+	for _, v := range s {
+		if v.AttributeToData[field] == value {
+			return strconv.Itoa(v.Version)
+		}
+	}
+	return strconv.Itoa(-1)
 }
 
 func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) []Spec {

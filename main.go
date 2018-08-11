@@ -6,9 +6,9 @@ import (
 
 	"github.com/golang/glog"
 
+	server "github.com/cloud-ark/kubeprovenance/pkg/cmd/server"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/logs"
-	"github.com/cloud-ark/kubeprovenance/pkg/cmd/server"
 )
 
 func main() {
