@@ -146,7 +146,7 @@ func (o ObjectLineage) LatestVersion() int {
 	return len(o)
 }
 
-func (o ObjectLineage) GetVersion() string {
+func (o ObjectLineage) GetVersions() string {
 	arr := make([]string, 0)
 	versions := o.LatestVersion()
 	for index := 1; index <= versions; index++ {
@@ -166,7 +166,6 @@ func (o ObjectLineage) SpecHistory() string {
 	return strings.Join(s, "\n")
 }
 
-//add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) []Spec {
 	s := make([]Spec, vNumEnd-vNumStart+1)
 	for v, spec := range o {
@@ -177,7 +176,6 @@ func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) []Spec {
 	return s
 }
 
-//add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	var b strings.Builder
 	sp1 := o[vNumStart]
@@ -208,7 +206,6 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	return b.String()
 }
 
-//add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) string {
 	var b strings.Builder
 	data1, ok1 := o[vNumStart].AttributeToData[fieldName]
