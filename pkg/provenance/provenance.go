@@ -77,9 +77,6 @@ func CollectProvenance() {
 	// fmt.Println("Inside CollectProvenance")
 	// for {
 
-	//right now the way you set up the rest api depends on this compositionfile, so
-	//postgreses type is not specified in it, so I do not think it would work for
-	//crds like postgres right now
 	readKindCompositionFile()
 	parse()
 	// 	time.Sleep(time.Second * 5)
