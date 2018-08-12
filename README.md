@@ -16,7 +16,9 @@ kubeprovenance uses Kubernetes Auditing to build the provenance information.
 In building this API server we tried several approaches. You can read about our experience  
 [here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22).
 
-## Try it on a node running kubernetes: run kubernetes locally and configure auditing
+## Try it Out: 
+**Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), configure auditing and running/testing Kubeprovenance aggregated api server** <br/> 
+
 **1. Setting up environment. reference: https://dzone.com/articles/easy-step-by-step-local-kubernetes-source-code-cha** <br/>
 ssh to your VM <br/>
 sudo su - <br/>
