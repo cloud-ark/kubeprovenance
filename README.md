@@ -39,7 +39,6 @@ set up your go workspace, set the GOPATH to it. this is where all your go code s
 export GOPATH=/gopath <br/>
 
 **5. Get The Kubernetes Source Code:** <br/>
-git clone --depth 1 https://github.com/kubernetes/kubernetes <br/>
 git clone https://github.com/kubernetes/kubernetes $GOPATH/src/k8s.io/kubernetes <br/>
 cd $GOPATH/src/k8s.io/kubernetes <br/>
 
@@ -51,11 +50,10 @@ In a new shell, test that it is working : <br/>
 root@host: $GOPATH/src/k8s.io/kubernetes# cluster/kubectl.sh cluster-info <br/>
 Kubernetes master is running at http://127.0.0.1:8080 # => works! <br/>
 
-I added $GOPATH/src/k8s.io/kubernetes/cluster to my PATH, and added it to ~/.profile. Do so or else the 
-shell scripts for building, deploying and deleting will not work .. <br/>
+Add $GOPATH/src/k8s.io/kubernetes/cluster to PATH. <br/>
 
 export PATH=$PATH:$GOPATH/src/k8s.io/kubernetes/cluster <br/>
-so since we are running locally, commands look like kubectl.sh get pods instead of kubectl get pods... 
+Commands look like kubectl.sh get pods instead of kubectl get pods... 
 
 **7. Enabling auditing:**
 We have to enable auditing. reference: https://kubernetes.io/docs/tasks/debug-application-cluster/audit/ <br/>
@@ -86,7 +84,7 @@ line 486: add audit-policy file to audit_args:
    An example of a audit-policy file: reference the docs if you are looking to make one: <br/>
       https://kubernetes.io/docs/tasks/debug-application-cluster/audit/
       
-   For running kubeprovenance to track only a postgres custom resource, audit-policy could look like this:  <br/>
+   For running kubeprovenance to track only a postgres custom resource, audit-policy would look like this:  <br/>
    Add more rules to the audit-policy to track different or more than one custom resource:
    
       root@provenance:~# more audit-policy.yaml 
@@ -130,34 +128,34 @@ Now to deploy this aggregated api server use these commands:
    `$ ./delete-provenance-artifacts.sh`
 
 Test using these following commands:   
-1) Get list of versions for client25 deployment (it really is a postgreses not deployments, it will recognize custom kinds soon enough)
+1) Get list of versions for client25 postgres
 
 ```
-kubectl.sh get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/versions
+kubectl.sh get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/versions
 ```
 
-2) Get Spec history for client25 deployment
+2) Get Spec history for client25 postgres
 
 ```
-kubectl.sh get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/spechistory
+kubectl.sh get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory
 ```
 
-3) Get diff of Spec for client25 deployment between version v1 and version v2
+3) Get diff of Spec for client25 postgres between version v1 and version v2
 
 ```
-kubectl.sh get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/diff?start=v1&end=v2
+kubectl.sh get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=v1&end=v2
 ```
 
-4) Get diff of field abc for client25 deployment between version v1 and version v2
+4) Get diff of field abc for client25 postgres between version v1 and version v2
 
 ```
-kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/diff?start=v1&end=v2&field=abc"
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=v1&end=v2&field=abc"
 ```
 
-5) Find out which version field abc for client25 deployment was given value def
+5) Find out which version field abc for client25 postgres was given value def
 
 ```
-kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/bisect?field=abc&value=def"
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field=abc&value=def"
 ```
 
 
@@ -177,34 +175,34 @@ Scripts are provided to help with building the API server container image and de
 
 Once the kubediscovery API server is running, you can find provenance information by using following type of commands: 
 
-1) Get list of versions for client25 deployment (it really is of kind postgreses not deployments, this will recognize custom kinds soon enough)
+1) Get list of versions for client25 postgres
 
 ```
-kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/versions
+kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/versions
 ```
 
-2) Get Spec history for client25 deployment
+2) Get Spec history for client25 postgres
 
 ```
-kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/spechistory
+kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory
 ```
 
-3) Get diff of Spec for client25 deployment between version v1 and version v2
+3) Get diff of Spec for client25 postgres between version v1 and version v2
 
 ```
-kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/diff?start=v1&end=v2
+kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=v1&end=v2
 ```
 
-4) Get diff of field abc for client25 deployment between version v1 and version v2
+4) Get diff of field abc for client25 postgres between version v1 and version v2
 
 ```
-kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/diff?start=v1&end=v2&field=abc"
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=v1&end=v2&field=abc"
 ```
 
-5) Find out which version field abc for client25 deployment was given value def
+5) Find out which version field abc for client25 postgres was given value def
 
 ```
-kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/client25/bisect?field=abc&value=def"
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field=abc&value=def"
 ```
 
 ## Troubleshooting tips:
