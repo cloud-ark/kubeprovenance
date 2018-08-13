@@ -127,32 +127,33 @@ Now to deploy this aggregated api server use these commands:
 3) Clean-up:  <br/>
    `$ ./delete-provenance-artifacts.sh`
 
-Test using these following commands:   
-1) Get list of versions for client25 postgres
+Once the kubeprovenance API server is running, you can find provenance information by using the following commands:
+
+1) Get list of version for a Postgres custom resource instance (client25)
 
 ```
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/versions"
 ```
 
-2) Get Spec history for client25 postgres
+2) Get Spec history for Postgres custom resource instance
 
 ```
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory"
 ```
 
-3) Get diff of Spec for client25 postgres between version 1 and version 2
+3) Get diff of Postgres custom resource instance between version 1 and version 2
 
 ```
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2"
 ```
 
-4) Get diff of field abc for client25 postgres between version v1 and version v2
+4) Get diff of the field databases for a Postgres custom resource instance between version 1 and version 2
 
 ```
-kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=abc"
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=databases"
 ```
 
-5) Find out which version field abc for client25 postgres was given value def
+5) Find out in which version the field 'abc' was given value 'def'
 
 ```
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field=abc&value=def"
@@ -176,33 +177,33 @@ Scripts are provided to help with building the API server container image and de
 3) Clean-up:  <br/>
    `$ ./delete-provenance-artifacts.sh`
 
-Once the kubediscovery API server is running, you can find provenance information by using following type of commands:
+Once the kubeprovenance API server is running, you can find provenance information by using the following commands:
 
-1) Get list of versions for client25 postgres
+1) Get list of version for a Postgres custom resource instance (client25)
 
 ```
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/versions"
 ```
 
-2) Get Spec history for client25 postgres
+2) Get Spec history for Postgres custom resource instance
 
 ```
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory"
 ```
 
-3) Get diff of Spec for client25 postgres between version 1 and version 2
+3) Get diff of Postgres custom resource instance between version 1 and version 2
 
 ```
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2"
 ```
 
-4) Get diff of field abc for client25 postgres between version 1 and version 2
+4) Get diff of the field databases for a Postgres custom resource instance between version 1 and version 2
 
 ```
-kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=abc"
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=databases"
 ```
 
-5) Find out which version field abc for client25 postgres was given value def
+5) Find out in which version the field 'abc' was given value 'def'
 
 ```
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field=abc&value=def"
