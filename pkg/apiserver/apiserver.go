@@ -129,6 +129,7 @@ func installCompositionProvenanceWebService(provenanceServer *ProvenanceServer) 
 		path := "/apis/" + GroupName + "/" + GroupVersion + "/namespaces/"
 		path = path + namespaceToUse + "/" + strings.ToLower(resourceKindPlural)
 		fmt.Println("WS PATH:" + path)
+
 		ws := getWebService()
 		ws.Path(path).
 			Consumes(restful.MIME_JSON, restful.MIME_XML).
@@ -170,8 +171,6 @@ func getVersions(request *restful.Request, response *restful.Response) {
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
 	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind: " + resourceKind + "\n"
-	fmt.Println(provenanceInfo)
-
 	response.Write([]byte(provenanceInfo))
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
 
@@ -186,7 +185,7 @@ func getVersions(request *restful.Request, response *restful.Response) {
 }
 
 func getHistory(request *restful.Request, response *restful.Response) {
-	fmt.Println("Inside getHistory")
+	fmt.Println("Inside gethistory")
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
 	resourcePathSlice := strings.Split(requestPath, "/")
@@ -242,14 +241,10 @@ func getDiff(request *restful.Request, response *restful.Response) {
 	fmt.Println("Inside getDiff")
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
-
-	// Path looks as follows:
-	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
 
 	fmt.Printf("Resource Name:%s, Resource Kind:%s", resourceName, resourceKind)
-
 	start := request.QueryParameter("start")
 	end := request.QueryParameter("end")
 	field := request.QueryParameter("field")

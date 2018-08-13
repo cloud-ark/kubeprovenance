@@ -16,8 +16,8 @@ kubeprovenance uses Kubernetes Auditing to build the provenance information.
 In building this API server we tried several approaches. You can read about our experience  
 [here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22).
 
-## Try it Out: 
-**Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), configure auditing and running/testing Kubeprovenance aggregated api server** <br/> 
+## Try it Out:
+**Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), configure auditing and running/testing Kubeprovenance aggregated api server** <br/>
 
 **1. Setting up environment. reference: https://dzone.com/articles/easy-step-by-step-local-kubernetes-source-code-cha** <br/>
 ssh to your VM <br/>
@@ -53,7 +53,7 @@ Kubernetes master is running at http://127.0.0.1:8080 # => works! <br/>
 Add $GOPATH/src/k8s.io/kubernetes/cluster to PATH. <br/>
 
 export PATH=$PATH:$GOPATH/src/k8s.io/kubernetes/cluster <br/>
-Commands look like kubectl.sh get pods instead of kubectl get pods... 
+Commands look like kubectl.sh get pods instead of kubectl get pods...
 
 **7. Enabling auditing:**
 We have to enable auditing. reference: https://kubernetes.io/docs/tasks/debug-application-cluster/audit/ <br/>
@@ -68,26 +68,26 @@ line 87: Change ENABLE_APISERVER_BASIC_AUDIT to true
    ENABLE_APISERVER_BASIC_AUDIT=${ENABLE_APISERVER_BASIC_AUDIT:-true}
 
 line 486: add audit-policy file to audit_args:   
-   Now you need to add an audit-arg for the audit-policy. add the following line after audit_arg+=" --audit-log-maxbackup=0" 
-   
+   Now you need to add an audit-arg for the audit-policy. add the following line after audit_arg+=" --audit-log-maxbackup=0"
+
    audit_arg += " --audit-policy-file=/root/audit-policy.yaml" <br/>
-         
+
    The value of --audit-policy-file is where you created your audit-policy.yaml file.  <br/>
    There is an example-policy for a postgres custom resource saved in this repository. <br/>
-      
+
    Note: the audit log for your custom resource will be saved where this variable is set:
       APISERVER_BASIC_AUDIT_LOG=/tmp/kube-apiserver-audit.log
-   
-   
+
+
    This file defines what actions and resources will generate logs.
-   
+
    An example of a audit-policy file: reference the docs if you are looking to make one: <br/>
       https://kubernetes.io/docs/tasks/debug-application-cluster/audit/
-      
+
    For running kubeprovenance to track only a postgres custom resource, audit-policy would look like this:  <br/>
    Add more rules to the audit-policy to track different or more than one custom resource:
-   
-      root@provenance:~# more audit-policy.yaml 
+
+      root@provenance:~# more audit-policy.yaml
       apiVersion: audit.k8s.io/v1beta1
       kind: Policy
       omitStages:
@@ -102,12 +102,12 @@ line 486: add audit-policy file to audit_args:
             - group: "postgrescontroller.kubeplus"
               version: "v1"
               resources: ["postgreses"]
-    
+
    Note: our approach may change to a webhook backend instead of a log backend <br/>
-   
+
 
 **8. Running kubeprovenance** <br/>
-   
+
 Install dep:  <br/>
 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh <br/>
 
@@ -131,25 +131,25 @@ Test using these following commands:
 1) Get list of versions for client25 postgres
 
 ```
-kubectl.sh get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/versions
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/versions"
 ```
 
 2) Get Spec history for client25 postgres
 
 ```
-kubectl.sh get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory"
 ```
 
-3) Get diff of Spec for client25 postgres between version v1 and version v2
+3) Get diff of Spec for client25 postgres between version 1 and version 2
 
 ```
-kubectl.sh get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=v1&end=v2
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2"
 ```
 
 4) Get diff of field abc for client25 postgres between version v1 and version v2
 
 ```
-kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=v1&end=v2&field=abc"
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=abc"
 ```
 
 5) Find out which version field abc for client25 postgres was given value def
@@ -158,10 +158,12 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field=abc&value=def"
 ```
 ![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/spechistory.png)
-
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getdiff_databases.png)
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getdiff_users.png)
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/nodiff.png)
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/versions.png)
 
 ## Try it on Minikube
-
 
 Scripts are provided to help with building the API server container image and deployment/cleanup.
 
@@ -174,30 +176,30 @@ Scripts are provided to help with building the API server container image and de
 3) Clean-up:  <br/>
    `$ ./delete-provenance-artifacts.sh`
 
-Once the kubediscovery API server is running, you can find provenance information by using following type of commands: 
+Once the kubediscovery API server is running, you can find provenance information by using following type of commands:
 
 1) Get list of versions for client25 postgres
 
 ```
-kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/versions
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/versions"
 ```
 
 2) Get Spec history for client25 postgres
 
 ```
-kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory"
 ```
 
-3) Get diff of Spec for client25 postgres between version v1 and version v2
+3) Get diff of Spec for client25 postgres between version 1 and version 2
 
 ```
-kubectl get --raw /apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=v1&end=v2
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2"
 ```
 
-4) Get diff of field abc for client25 postgres between version v1 and version v2
+4) Get diff of field abc for client25 postgres between version 1 and version 2
 
 ```
-kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=v1&end=v2&field=abc"
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=abc"
 ```
 
 5) Find out which version field abc for client25 postgres was given value def
@@ -208,7 +210,7 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 
 ## Troubleshooting tips:
 
-1) Check that the API server Pod is running: 
+1) Check that the API server Pod is running:
 
    `$ kubectl get pods -n provenance`
 
@@ -222,4 +224,3 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 
 The Aggregated API Server has been developed by refering to [sample-apiserver](https://github.com/kubernetes/sample-apiserver)
 and [custom-metrics-apiserver](https://github.com/kubernetes-incubator/custom-metrics-apiserver).
-

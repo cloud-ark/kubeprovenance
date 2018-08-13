@@ -141,38 +141,32 @@ func (o ObjectLineage) String() string {
 }
 
 func (o ObjectLineage) GetVersions() string {
-	s := make([]Spec, 0)
-	for _, spec := range o {
-		s = append(s, spec)
+	s := make([]int, 0)
+	for _, value := range o {
+		s = append(s, value.Version)
 	}
-	sort.Slice(s, func(i, j int) bool {
-		return s[i].Version < s[i].Version
-	})
+	sort.Ints(s)
 	//get all versions, sort by version, make string array of them
 	versions := make([]string, 0)
-	for _, spec := range s {
-		fmt.Println(spec.Version)
-		versions = append(versions, fmt.Sprint(spec.Version))
+	for _, version := range s {
+		versions = append(versions, fmt.Sprint(version)) //cast int to string
 	}
-	fmt.Println(strings.Join(versions, ", "))
-	return "helloooooooo"
+	return "[" + strings.Join(versions, ", ") + "]\n"
 }
 
 //what happens if I delete the object?
 //need to delete the ObjectFullProvenance for the object
 //add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) SpecHistory() string {
-	fmt.Println("inside spechistory")
-	s := make([]Spec, 0)
-	for _, spec := range o {
-		s = append(s, spec)
+	s := make([]int, 0)
+	for _, value := range o {
+		s = append(s, value.Version)
 	}
-	sort.Slice(s, func(i, j int) bool {
-		return s[i].Version < s[i].Version
-	})
+	sort.Ints(s)
+	//get all versions, sort by version, make string array of them
 	specs := make([]string, 0)
-	for _, spec := range s {
-		specs = append(specs, spec.String())
+	for _, version := range s {
+		specs = append(specs, fmt.Sprint(o[version])) //cast Spec to String
 	}
 	return strings.Join(specs, "\n")
 }
@@ -330,7 +324,6 @@ func parse() {
 
 func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []byte) {
 	fmt.Println("entering parse request")
-
 	var result map[string]interface{}
 	json.Unmarshal([]byte(requestObjBytes), &result)
 
