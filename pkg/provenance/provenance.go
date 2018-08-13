@@ -76,7 +76,6 @@ func init() {
 func CollectProvenance() {
 	// fmt.Println("Inside CollectProvenance")
 	// for {
-
 	readKindCompositionFile()
 	parse()
 	// 	time.Sleep(time.Second * 5)
@@ -141,28 +140,41 @@ func (o ObjectLineage) String() string {
 	return b.String()
 }
 
-func (o ObjectLineage) LatestVersion() int {
-	return len(o)
-}
-
 func (o ObjectLineage) GetVersions() string {
-	arr := make([]string, 0)
-	versions := o.LatestVersion()
-	for index := 1; index <= versions; index++ {
-		arr = append(arr, string(index))
+	s := make([]Spec, 0)
+	for _, spec := range o {
+		s = append(s, spec)
 	}
-	return "[" + strings.Join(arr, ",") + "]"
+	sort.Slice(s, func(i, j int) bool {
+		return s[i].Version < s[i].Version
+	})
+	//get all versions, sort by version, make string array of them
+	versions := make([]string, 0)
+	for _, spec := range s {
+		fmt.Println(spec.Version)
+		versions = append(versions, fmt.Sprint(spec.Version))
+	}
+	fmt.Println(strings.Join(versions, ", "))
+	return "helloooooooo"
 }
 
 //what happens if I delete the object?
 //need to delete the ObjectFullProvenance for the object
 //add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) SpecHistory() string {
-	s := make([]string, len(o))
-	for v, spec := range o {
-		s[v-1] = spec.String()
+	fmt.Println("inside spechistory")
+	s := make([]Spec, 0)
+	for _, spec := range o {
+		s = append(s, spec)
 	}
-	return strings.Join(s, "\n")
+	sort.Slice(s, func(i, j int) bool {
+		return s[i].Version < s[i].Version
+	})
+	specs := make([]string, 0)
+	for _, spec := range s {
+		specs = append(specs, spec.String())
+	}
+	return strings.Join(specs, "\n")
 }
 func (o ObjectLineage) Bisect(field, value string) string {
 	s := make([]Spec, 0)
@@ -186,14 +198,24 @@ func (o ObjectLineage) Bisect(field, value string) string {
 	return strconv.Itoa(-1)
 }
 
-func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) []Spec {
-	s := make([]Spec, vNumEnd-vNumStart+1)
-	for v, spec := range o {
-		if v >= vNumStart && v <= vNumEnd {
-			s[v-vNumStart] = spec
+//TODO: add optional parameters to spechistory route in apiserver.go, and call this method.
+// Right now it is actually unused
+func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) []string {
+	//order keys so we append in order later, reference: https://blog.golang.org/go-maps-in-action#TOC_7.
+	s := make([]Spec, 0)
+	for _, spec := range o {
+		s = append(s, spec)
+	}
+	sort.Slice(s, func(i, j int) bool {
+		return s[i].Version < s[i].Version
+	})
+	specs := make([]string, 0)
+	for _, spec := range s {
+		if spec.Version >= vNumStart && spec.Version <= vNumEnd {
+			specs = append(specs, spec.String())
 		}
 	}
-	return s
+	return specs
 }
 
 func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {

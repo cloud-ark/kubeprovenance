@@ -169,15 +169,14 @@ func getVersions(request *restful.Request, response *restful.Response) {
 	requestPath := request.Request.URL.Path
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
-	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
+	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind: " + resourceKind + "\n"
 	fmt.Println(provenanceInfo)
 
 	response.Write([]byte(provenanceInfo))
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
 
-	//TODO: Validate request based on the correct namespace and the correct plural type. right now
-	//deployments is sort of just ignored intentionally. I have the namespace/pluralkind data
-	//in my ProvenanceOfObject struct so it is easy to make these changes later
+	//TODO: Validate request based on the correct namespace and the correct plural type.
+	//I have the namespace/pluralkind datain my ProvenanceOfObject struct so it is easy to make these changes later
 	if intendedProvObj == nil {
 		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
 		response.Write([]byte(s))
@@ -197,13 +196,13 @@ func getHistory(request *restful.Request, response *restful.Response) {
 	response.Write([]byte(provenanceInfo))
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
 
-	//TODO: Validate request based on the correct namespace and the correct plural type. right now
-	//deployments is sort of just ignored intentionally. I have the namespace/pluralkind data
-	//in my ProvenanceOfObject struct so it is easy to make these changes later
+	//TODO: Validate request based on the correct namespace and the correct plural type.
+	//I have the namespace/pluralkind datain my ProvenanceOfObject struct so it is easy to make these changes later
 	if intendedProvObj == nil {
 		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
 		response.Write([]byte(s))
 	} else {
+		//TODO: handle optional interval parameters
 		response.Write([]byte(intendedProvObj.ObjectFullHistory.SpecHistory()))
 	}
 
@@ -255,7 +254,6 @@ func getDiff(request *restful.Request, response *restful.Response) {
 	end := request.QueryParameter("end")
 	field := request.QueryParameter("field")
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
-
 	if intendedProvObj == nil {
 		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
 		response.Write([]byte(s))
@@ -266,7 +264,7 @@ func getDiff(request *restful.Request, response *restful.Response) {
 	if start == "" || end == "" {
 		fmt.Printf("Start:%s", start)
 		fmt.Printf("End:%s", end)
-		diffInfo = "Start and end query parameters missing\n"
+		diffInfo = "Start and end query parameters are missing\n"
 	} else {
 		fmt.Printf("Start:%s", start)
 		fmt.Printf("End:%s", end)
