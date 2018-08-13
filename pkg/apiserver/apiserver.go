@@ -2,15 +2,16 @@ package apiserver
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
+	"github.com/emicklei/go-restful"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/version"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"github.com/emicklei/go-restful"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
@@ -21,11 +22,11 @@ const GroupName = "kubeprovenance.cloudark.io"
 const GroupVersion = "v1"
 
 var (
-	Scheme = runtime.NewScheme()
-	Codecs = serializer.NewCodecFactory(Scheme)
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme   = SchemeBuilder.AddToScheme
-    SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
+	Scheme             = runtime.NewScheme()
+	Codecs             = serializer.NewCodecFactory(Scheme)
+	SchemeBuilder      = runtime.NewSchemeBuilder(addKnownTypes)
+	AddToScheme        = SchemeBuilder.AddToScheme
+	SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {
@@ -40,7 +41,7 @@ func init() {
 	utilruntime.Must(Scheme.SetVersionPriority(SchemeGroupVersion))
 
 	// TODO(devdattakulkarni) -- Following comments coming from sample-apiserver.
-	// Leaving them for now. 
+	// Leaving them for now.
 	// we need to add the options to empty v1
 	// TODO fix the server code to avoid this
 	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: GroupVersion})
@@ -128,6 +129,7 @@ func installCompositionProvenanceWebService(provenanceServer *ProvenanceServer) 
 		path := "/apis/" + GroupName + "/" + GroupVersion + "/namespaces/"
 		path = path + namespaceToUse + "/" + strings.ToLower(resourceKindPlural)
 		fmt.Println("WS PATH:" + path)
+
 		ws := getWebService()
 		ws.Path(path).
 			Consumes(restful.MIME_JSON, restful.MIME_XML).
@@ -166,97 +168,122 @@ func getWebService() *restful.WebService {
 func getVersions(request *restful.Request, response *restful.Response) {
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
-	//fmt.Printf("Printing Provenance\n")
-	//provenance.TotalClusterProvenance.PrintProvenance()
-
-	// Path looks as follows:
-	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
-	//provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
-	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
-	fmt.Println(provenanceInfo)
-
+	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind: " + resourceKind + "\n"
 	response.Write([]byte(provenanceInfo))
+	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+
+	//TODO: Validate request based on the correct namespace and the correct plural type.
+	//I have the namespace/pluralkind datain my ProvenanceOfObject struct so it is easy to make these changes later
+	if intendedProvObj == nil {
+		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
+		response.Write([]byte(s))
+	} else {
+		response.Write([]byte(intendedProvObj.ObjectFullHistory.GetVersions()))
+	}
 }
 
 func getHistory(request *restful.Request, response *restful.Response) {
-	fmt.Println("Inside getHistory")
+	fmt.Println("Inside gethistory")
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
-	//fmt.Printf("Printing Provenance\n")
-	//provenance.TotalClusterProvenance.PrintProvenance()
-
-	// Path looks as follows:
-	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
-//	provenanceInfo := provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
 
-	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
-	fmt.Println(provenanceInfo)
-
+	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind + "\n"
 	response.Write([]byte(provenanceInfo))
+	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+
+	//TODO: Validate request based on the correct namespace and the correct plural type.
+	//I have the namespace/pluralkind datain my ProvenanceOfObject struct so it is easy to make these changes later
+	if intendedProvObj == nil {
+		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
+		response.Write([]byte(s))
+	} else {
+		//TODO: handle optional interval parameters
+		response.Write([]byte(intendedProvObj.ObjectFullHistory.SpecHistory()))
+	}
+
 }
 
 func bisect(request *restful.Request, response *restful.Response) {
 	fmt.Println("Inside bisect")
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
-	//fmt.Printf("Printing Provenance\n")
-	//provenance.TotalClusterProvenance.PrintProvenance()
-
-	// Path looks as follows:
-	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
-	
+
 	var provenanceInfo string
-	//provenanceInfo = provenance.TotalClusterProvenance.GetProvenance(resourceKind, resourceName)
 	provenanceInfo = "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
 	fmt.Println(provenanceInfo)
 
 	field := request.QueryParameter("field")
 	value := request.QueryParameter("value")
 
-	provenanceInfo = provenanceInfo + " Field:" + field + " Value:" + value 
+	provenanceInfo = provenanceInfo + " Field:" + field + "Value: " + value + "\n"
 
-	fmt.Println("ProvenanceInfo:%v", provenanceInfo)
+	fmt.Printf("ProvenanceInfo:%v", provenanceInfo)
 
 	response.Write([]byte(provenanceInfo))
-}
 
+	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+	if intendedProvObj == nil {
+		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
+		response.Write([]byte(s))
+	} else {
+		response.Write([]byte("Version: " + intendedProvObj.ObjectFullHistory.Bisect(field, value)))
+		response.Write([]byte(string("\n")))
+	}
+}
 
 func getDiff(request *restful.Request, response *restful.Response) {
 	fmt.Println("Inside getDiff")
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
-
-	// Path looks as follows:
-	// /apis/kubeprovenance.cloudark.io/v1/namespaces/default/deployments/dep1/compositions
 	resourcePathSlice := strings.Split(requestPath, "/")
 	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
 
-	fmt.Println("Resource Name:%s, Resource Kind:%s", resourceName, resourceKind)
-
+	fmt.Printf("Resource Name:%s, Resource Kind:%s", resourceName, resourceKind)
 	start := request.QueryParameter("start")
 	end := request.QueryParameter("end")
 	field := request.QueryParameter("field")
+	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+	if intendedProvObj == nil {
+		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
+		response.Write([]byte(s))
+		return
+	}
 
 	var diffInfo string
-	if ( start == "" || end == "" ) {
-		fmt.Println("Start:%s", start)
-		fmt.Println("End:%s", end)
-		diffInfo = "start and end query parameters missing\n"
+	if start == "" || end == "" {
+		fmt.Printf("Start:%s", start)
+		fmt.Printf("End:%s", end)
+		diffInfo = "Start and end query parameters are missing\n"
 	} else {
-		fmt.Println("Start:%s", start)
-		fmt.Println("End:%s", end)
+		fmt.Printf("Start:%s", start)
+		fmt.Printf("End:%s", end)
+		startInt, err := strconv.Atoi(start)
+
+		if err != nil {
+			s := fmt.Sprintf("Could not parse start query parameter to int: %s", err.Error())
+			response.Write([]byte(s))
+			return
+		}
+		endInt, err := strconv.Atoi(end)
+		if err != nil {
+			s := fmt.Sprintf("Could not parse end query parameter to int: %s", err.Error())
+			response.Write([]byte(s))
+			return
+		}
+
 		if field != "" {
-			fmt.Println("Diff for Field requested. Field:%s", field)
+			fmt.Printf("Diff for Field requested. Field:%s", field)
+			diffInfo = intendedProvObj.ObjectFullHistory.FieldDiff(field, startInt, endInt)
 		} else {
 			fmt.Println("Diff for Spec requested.")
+			diffInfo = intendedProvObj.ObjectFullHistory.FullDiff(startInt, endInt)
 		}
-		diffInfo = "This is Diff Info: " + start + " " + end + " " + field
 	}
 	response.Write([]byte(diffInfo))
 }

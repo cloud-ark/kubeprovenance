@@ -18,3 +18,7 @@
   plural: configmaps
   endpoint: api/v1
   composition: []
+- kind: Postgres
+  plural: postgreses
+  endpoint: apis/postgrescontroller.kubeplus/v1
+  composition: [Pod, Service]

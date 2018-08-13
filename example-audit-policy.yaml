@@ -1,0 +1,14 @@
+apiVersion: audit.k8s.io/v1beta1
+kind: Policy
+omitStages:
+  - "RequestReceived"
+rules:
+  - level: Request
+    verbs:
+      - create
+      - delete
+      - patch
+    resources:
+      - group: "postgrescontroller.kubeplus"
+        version: "v1"
+        resources: ["postgreses"]

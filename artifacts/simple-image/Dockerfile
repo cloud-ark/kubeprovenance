@@ -13,5 +13,7 @@
 # limitations under the License.
 
 FROM fedora
+RUN mkdir -p /tmp/
 ADD kube-provenance-apiserver /
+ADD kube-apiserver-audit.log /tmp/
 ENTRYPOINT ["/kube-provenance-apiserver"]
