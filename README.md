@@ -1,6 +1,6 @@
 # kubeprovenance
 
-A Kubernetes Aggregated API Server to find out Provenance information for different Kuberentes Custom Resources.
+A Kubernetes Aggregated API Server to find out Provenance/Lineage information for Kuberentes Custom Resources.
 
 ## What is it?
 
@@ -12,7 +12,7 @@ For this, a generic approach is needed to maintain provenance information of cus
 
 kubeprovenance is a tool that helps you find Provenance information about different Kubernetes custom resources in your cluster. 
 
-Kubeprovenance is a Kubernetes aggregated API server uses Kubernetes audit logs for building custom resource provenance. 
+Kubeprovenance is a Kubernetes aggregated API server. It uses Kubernetes audit logs for building custom resource provenance. 
 Provenance query operators like history, diff, bisect are defined for custom resource instance tracking. Provenance information is accessible via kubectl.
 
 ## How does it work?
@@ -26,12 +26,9 @@ In building this API server we tried several approaches. You can read about our 
 
 Work in Progress.
 
-Note that the kubeprovenance API server currently uses kube-apiserver-audit.log file included in artifacts/simple-image folder
-to construct provenance information. You can try out kubeprovenance to understand the basic mechanics of how to use Kubernetes audit logs
-and how do the provenance query operators work.
-
-We are working on changing kubeprovenance's information source from static audit log file to live audit logs that are continuously collected
-in the cluster.
+Note that currently kubeprovenance uses kube-apiserver-audit.log file included in artifacts/simple-image folder
+to build provenance information. So when you try out kubeprovenance you will get provenance information that is build from this file.
+We are working on changing kubeprovenance's information source from static audit log file to live audit logs that are continuously collected in the cluster.
 
 ## Try it Out:
 Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), configure auditing and running/testing Kubeprovenance aggregated api server
