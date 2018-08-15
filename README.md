@@ -32,22 +32,8 @@ export PATH=$PATH:/usr/local/go/bin <br/>
 **3. Install etcd3.2.18:**
 curl -L https://github.com/coreos/etcd/releases/download/v3.2.18/etcd-v3.2.18-linux-amd64.tar.gz -o etcd-v3.2.18-linux-amd64.tar.gz && tar xzvf etcd-v3.2.18-linux-amd64.tar.gz && /bin/cp -f etcd-v3.2.18-linux-amd64/{etcd,etcdctl} /usr/bin && rm -rf etcd-v3.2.18-linux-amd64* <br/>
 **4. Install Docker**<br/>
-reference: https://docs.docker.com/install/linux/docker-ce/ubuntu/#set-up-the-repository <br/>
-sudo apt-get update <br/>
-sudo apt-get install \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    software-properties-common <br/>
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - <br/>
-sudo apt-key fingerprint 0EBFCD88 <br/>
-sudo add-apt-repository \
-   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-   $(lsb_release -cs) \
-   stable" <br/>
-sudo apt-get update <br/>
-sudo apt-get install docker-ce <br/>
-docker version <br/> //to check if it is installed
+Follow steps here: reference: https://docs.docker.com/install/linux/docker-ce/ubuntu/#set-up-the-repository <br/>
+docker version <br/> //check if it is installed
 
 set up your go workspace, set the GOPATH to it. this is where all your go code should be. <br/>
 mkdir $HOME/goworkspace <br/>
@@ -97,7 +83,7 @@ line 486: add audit-policy file to audit_args:
    This file defines what actions and resources will generate logs.
 
    reference the docs if you are looking to make one: <br/>
-      https://kubernetes.io/docs/tasks/debug-application-cluster/audit/
+      https://kubernetes.io/docs/tasks/debug-application-cluster/audit/ <br/>
    For running kubeprovenance to track only a postgres custom resource, audit-policy would look like this:  <br/>
    Note: Add more rules to the audit-policy to track different or more than one custom resource:
 
