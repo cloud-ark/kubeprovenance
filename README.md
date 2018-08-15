@@ -25,18 +25,33 @@ sudo su - <br/>
 apt-get install -y gcc make socat git<br/>
 
 **2. Install Golang 1.10.3:** <br/>
-wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz
+wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz <br/>
+sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz <br/>
 export PATH=$PATH:/usr/local/go/bin <br/>
 
 **3. Install etcd3.2.18:**
 curl -L https://github.com/coreos/etcd/releases/download/v3.2.18/etcd-v3.2.18-linux-amd64.tar.gz -o etcd-v3.2.18-linux-amd64.tar.gz && tar xzvf etcd-v3.2.18-linux-amd64.tar.gz && /bin/cp -f etcd-v3.2.18-linux-amd64/{etcd,etcdctl} /usr/bin && rm -rf etcd-v3.2.18-linux-amd64* <br/>
 **4. Install Docker**<br/>
+reference: https://docs.docker.com/install/linux/docker-ce/ubuntu/#set-up-the-repository <br/>
+sudo apt-get update <br/>
+sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    software-properties-common <br/>
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - <br/>
+sudo apt-key fingerprint 0EBFCD88 <br/>
+sudo add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+   $(lsb_release -cs) \
+   stable" <br/>
 sudo apt-get update <br/>
 sudo apt-get install docker-ce <br/>
+docker version <br/> //to check if it is installed
 
 set up your go workspace, set the GOPATH to it. this is where all your go code should be. <br/>
-export GOPATH=/gopath <br/>
+mkdir $HOME/goworkspace <br/>
+export GOPATH=$HOME/goworkspace <br/>
 
 **5. Get The Kubernetes Source Code:** <br/>
 git clone https://github.com/kubernetes/kubernetes $GOPATH/src/k8s.io/kubernetes <br/>
@@ -50,10 +65,10 @@ In a new shell, test that it is working : <br/>
 root@host: $GOPATH/src/k8s.io/kubernetes# cluster/kubectl.sh cluster-info <br/>
 Kubernetes master is running at http://127.0.0.1:8080 # => works! <br/>
 
-Add $GOPATH/src/k8s.io/kubernetes/cluster to PATH. <br/>
+Add $GOPATH/src/k8s.io/kubernetes/cluster to PATH: <br/>
 
 export PATH=$PATH:$GOPATH/src/k8s.io/kubernetes/cluster <br/>
-Commands look like kubectl.sh get pods instead of kubectl get pods...
+Now, Commands look like kubectl.sh get pods instead of kubectl get pods...
 
 **7. Enabling auditing:**
 We have to enable auditing. reference: https://kubernetes.io/docs/tasks/debug-application-cluster/audit/ <br/>
@@ -81,11 +96,10 @@ line 486: add audit-policy file to audit_args:
 
    This file defines what actions and resources will generate logs.
 
-   An example of a audit-policy file: reference the docs if you are looking to make one: <br/>
+   reference the docs if you are looking to make one: <br/>
       https://kubernetes.io/docs/tasks/debug-application-cluster/audit/
-
    For running kubeprovenance to track only a postgres custom resource, audit-policy would look like this:  <br/>
-   Add more rules to the audit-policy to track different or more than one custom resource:
+   Note: Add more rules to the audit-policy to track different or more than one custom resource:
 
       root@provenance:~# more audit-policy.yaml
       apiVersion: audit.k8s.io/v1beta1
@@ -110,9 +124,9 @@ line 486: add audit-policy file to audit_args:
 
 Install dep:  <br/>
 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh <br/>
+cp $GOPATH/bin/dep /usr/bin/dep <br/>
 
-git clone https://github.com/cloud-ark/kubeprovenance.git <br/>
-mv kubeprovenance $GOPATH/src/github.com/cloud-ark <br/>
+git clone https://github.com/cloud-ark/kubeprovenance.git $GOPATH/src/github.com/cloud-ark<br/>
 cd $GOPATH/src/github.com/cloud-ark/kubeprovenance <br/>
 dep ensure <br/>
 
