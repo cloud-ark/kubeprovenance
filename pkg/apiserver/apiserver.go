@@ -194,6 +194,9 @@ func getHistory(request *restful.Request, response *restful.Response) {
 	provenanceInfo := "Resource Name:" + resourceName + " Resource Kind:" + resourceKind + "\n"
 	response.Write([]byte(provenanceInfo))
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
+	//optional parameters
+	start := request.QueryParameter("start")
+	end := request.QueryParameter("end")
 
 	//TODO: Validate request based on the correct namespace and the correct plural type.
 	//I have the namespace/pluralkind datain my ProvenanceOfObject struct so it is easy to make these changes later
@@ -201,8 +204,26 @@ func getHistory(request *restful.Request, response *restful.Response) {
 		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
 		response.Write([]byte(s))
 	} else {
-		//TODO: handle optional interval parameters
-		response.Write([]byte(intendedProvObj.ObjectFullHistory.SpecHistory()))
+		if start != "" && end != "" { //have both a start and an end
+			fmt.Printf("Start:%s", start)
+			fmt.Printf("End:%s", end)
+			startInt, err := strconv.Atoi(start)
+			if err != nil {
+				s := fmt.Sprintf("Could not parse start query parameter to int: %s", err.Error())
+				response.Write([]byte(s))
+				return
+			}
+			endInt, err := strconv.Atoi(end)
+			if err != nil {
+				s := fmt.Sprintf("Could not parse end query parameter to int: %s", err.Error())
+				response.Write([]byte(s))
+				return
+			}
+			fmt.Printf("Spec history starting with version %d and ending with version %d", startInt, endInt)
+			response.Write([]byte(intendedProvObj.ObjectFullHistory.SpecHistoryInterval(startInt, endInt)))
+		} else { //start and end
+			response.Write([]byte(intendedProvObj.ObjectFullHistory.SpecHistory()))
+		}
 	}
 
 }
@@ -216,23 +237,23 @@ func bisect(request *restful.Request, response *restful.Response) {
 
 	var provenanceInfo string
 	provenanceInfo = "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
-	fmt.Println(provenanceInfo)
+	//TODO: find out how to get entire query string, split on &, and pass in an array of fields/values to the bisect method.
+	field1 := request.QueryParameter("field1")
+	value1 := request.QueryParameter("value1")
 
-	field := request.QueryParameter("field")
-	value := request.QueryParameter("value")
-
-	provenanceInfo = provenanceInfo + " Field:" + field + "Value: " + value + "\n"
+	field2 := request.QueryParameter("field2")
+	value2 := request.QueryParameter("value2")
+	provenanceInfo = provenanceInfo + " Field1:" + field1 + " Value1: " + value1
+	provenanceInfo = provenanceInfo + " Field2:" + field2 + " Value2: " + value2 + "\n"
 
 	fmt.Printf("ProvenanceInfo:%v", provenanceInfo)
-
-	response.Write([]byte(provenanceInfo))
 
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
 	if intendedProvObj == nil {
 		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
 		response.Write([]byte(s))
 	} else {
-		response.Write([]byte("Version: " + intendedProvObj.ObjectFullHistory.Bisect(field, value)))
+		response.Write([]byte("Version: " + intendedProvObj.ObjectFullHistory.Bisect(field1, value1, field2, value2)))
 		response.Write([]byte(string("\n")))
 	}
 }
@@ -281,7 +302,7 @@ func getDiff(request *restful.Request, response *restful.Response) {
 			fmt.Printf("Diff for Field requested. Field:%s", field)
 			diffInfo = intendedProvObj.ObjectFullHistory.FieldDiff(field, startInt, endInt)
 		} else {
-			fmt.Println("Diff for Spec requested.")
+			fmt.Println("Diff for Full Spec requested.")
 			diffInfo = intendedProvObj.ObjectFullHistory.FullDiff(startInt, endInt)
 		}
 	}
