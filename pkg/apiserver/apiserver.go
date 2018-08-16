@@ -222,7 +222,6 @@ func getHistory(request *restful.Request, response *restful.Response) {
 			fmt.Printf("Spec history starting with version %d and ending with version %d", startInt, endInt)
 			response.Write([]byte(intendedProvObj.ObjectFullHistory.SpecHistoryInterval(startInt, endInt)))
 		} else { //start and end
-			fmt.Printf("here")
 			response.Write([]byte(intendedProvObj.ObjectFullHistory.SpecHistory()))
 		}
 	}
@@ -230,7 +229,7 @@ func getHistory(request *restful.Request, response *restful.Response) {
 }
 
 func bisect(request *restful.Request, response *restful.Response) {
-	fmt.Println("Inside bisectaa")
+	fmt.Println("Inside bisect")
 	resourceName := request.PathParameter("resource-id")
 	requestPath := request.Request.URL.Path
 	resourcePathSlice := strings.Split(requestPath, "/")
@@ -248,8 +247,6 @@ func bisect(request *restful.Request, response *restful.Response) {
 	provenanceInfo = provenanceInfo + " Field2:" + field2 + " Value2: " + value2 + "\n"
 
 	fmt.Printf("ProvenanceInfo:%v", provenanceInfo)
-
-	response.Write([]byte(provenanceInfo))
 
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
 	if intendedProvObj == nil {
@@ -305,7 +302,7 @@ func getDiff(request *restful.Request, response *restful.Response) {
 			fmt.Printf("Diff for Field requested. Field:%s", field)
 			diffInfo = intendedProvObj.ObjectFullHistory.FieldDiff(field, startInt, endInt)
 		} else {
-			fmt.Println("Diff for Spec requested.")
+			fmt.Println("Diff for Full Spec requested.")
 			diffInfo = intendedProvObj.ObjectFullHistory.FullDiff(startInt, endInt)
 		}
 	}

@@ -159,10 +159,10 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&value1=pallavi&field2=password&value2=pass123"
 ```
 ![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/spechistory.png)
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getdiff_databases.png)
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getdiff_users.png)
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/nodiff.png)
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getfulldiff.png)
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getfielddiff.png)
 ![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/versions.png)
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/bisect.png)
 
 ## Try it on Minikube
 
