@@ -4,15 +4,16 @@ A Kubernetes Aggregated API Server to find out Provenance/Lineage information fo
 
 ## What is it?
 
-Kubernetes custom resources extend base API to manage third-party platform elements declaratively.
-It is important to track chronology of declarative operations performed on custom resources to understand
-how these operations affect underlying platform elements - e.g. for an instance of Postgres custom resource we may want to know:
+
+Kubernetes custom resources extend base API to manage third-party platform elements declaratively. 
+It is important to track chronology of declarative operations performed on custom resources to understand 
+how these operations affect underlying platform elements - e.g. for an instance of Postgres custom resource we may want to know: 
 how many db users were created in a month, when was password changed for a db user, etc.
-For this, a generic approach is needed to maintain provenance information of custom resources.
+For this, a generic approach is needed to maintain provenance information of custom resources. 
 
-kubeprovenance is a tool that helps you find Provenance information about different Kubernetes custom resources in your cluster.
+kubeprovenance is a tool that helps you find Provenance information about different Kubernetes custom resources in your cluster. 
 
-Kubeprovenance is a Kubernetes aggregated API server. It uses Kubernetes audit logs for building custom resource provenance.
+Kubeprovenance is a Kubernetes aggregated API server. It uses Kubernetes audit logs for building custom resource provenance. 
 Provenance query operators like history, diff, bisect are defined for custom resource instance tracking. Provenance information is accessible via kubectl.
 
 ## How does it work?
@@ -33,7 +34,10 @@ We are working on changing kubeprovenance's information source from static audit
 ## Try it Out:
 Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), configure auditing and running/testing Kubeprovenance aggregated api server
 
-**1. Setting up environment. reference: https://dzone.com/articles/easy-step-by-step-local-kubernetes-source-code-cha** <br/>
+
+**1. Setting up environment.**
+
+Reference: https://dzone.com/articles/easy-step-by-step-local-kubernetes-source-code-cha<br/>
 ssh to your VM <br/>
 sudo su - <br/>
 apt-get install -y gcc make socat git<br/>
@@ -71,8 +75,9 @@ export PATH=$PATH:$GOPATH/src/k8s.io/kubernetes/cluster <br/>
 Now, Commands look like kubectl.sh get pods instead of kubectl get pods...
 
 **7. Enabling auditing:**
+
 We have to enable auditing. reference: https://kubernetes.io/docs/tasks/debug-application-cluster/audit/ <br/>
-Setting up Log backend ... <br/>
+Setting up Log backend (To be added)... <br/>
 
 If not in kubernetes directory... <br/>
 cd $GOPATH/src/k8s.io/kubernetes <br/>
@@ -178,7 +183,6 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 ```
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&value1=pallavi&field2=password&value2=pass123"
 ```
-
 
 ## Try it on Minikube
 
