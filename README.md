@@ -1,13 +1,19 @@
 # kubeprovenance
 
-A Kubernetes Aggregated API Server to find out Provenance information for different Kuberentes Custom Resources.
+A Kubernetes Aggregated API Server to find out Provenance/Lineage information for Kuberentes Custom Resources.
 
 ## What is it?
 
-kubeprovenance is a tool that helps you find Provenance information about different Kubernetes custom resources
-in your cluster. <br/>
-The information obtained from kubeprovenance can be used to determine how your cluster <br/>
-has evolved over time (its provenance/lineage). <br/>
+Kubernetes custom resources extend base API to manage third-party platform elements declaratively.
+It is important to track chronology of declarative operations performed on custom resources to understand
+how these operations affect underlying platform elements - e.g. for an instance of Postgres custom resource we may want to know:
+how many db users were created in a month, when was password changed for a db user, etc.
+For this, a generic approach is needed to maintain provenance information of custom resources.
+
+kubeprovenance is a tool that helps you find Provenance information about different Kubernetes custom resources in your cluster.
+
+Kubeprovenance is a Kubernetes aggregated API server. It uses Kubernetes audit logs for building custom resource provenance.
+Provenance query operators like history, diff, bisect are defined for custom resource instance tracking. Provenance information is accessible via kubectl.
 
 ## How does it work?
 
@@ -16,8 +22,16 @@ kubeprovenance uses Kubernetes Auditing to build the provenance information.
 In building this API server we tried several approaches. You can read about our experience  
 [here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22).
 
+## Status
+
+Work in Progress.
+
+Note that currently kubeprovenance uses kube-apiserver-audit.log file included in artifacts/simple-image folder
+to build provenance information. So when you try out kubeprovenance you will get provenance information that is build from this file.
+We are working on changing kubeprovenance's information source from static audit log file to live audit logs that are continuously collected in the cluster.
+
 ## Try it Out:
-**Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), configure auditing and running/testing Kubeprovenance aggregated api server** <br/>
+Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), configure auditing and running/testing Kubeprovenance aggregated api server
 
 **1. Setting up environment. reference: https://dzone.com/articles/easy-step-by-step-local-kubernetes-source-code-cha** <br/>
 ssh to your VM <br/>
@@ -141,28 +155,30 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory"
 ```
 
-3) Get diff of Postgres custom resource instance between version 1 and version 2
+3) Get diff of Postgres custom resource instance between version 1 and version 5
 
 ```
-kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2"
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=5"
 ```
 
-4) Get diff of the field databases for a Postgres custom resource instance between version 1 and version 2
+4) Get diff of the field databases for a Postgres custom resource instance between version 1 and version 5
 
 ```
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=databases"
 ```
 
-5) Find out in which version the user 'pallavi' was given password 'pass123'
+5) Get diff of the field username for a Postgres custom resource instance between version 1 and version 3
+
+```
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=3&field=username"
+```
+
+6) Find out in which version the user 'pallavi' was given password 'pass123'
 
 ```
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&value1=pallavi&field2=password&value2=pass123"
 ```
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/spechistory.png)
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getfulldiff.png)
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getfielddiff.png)
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/versions.png)
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/bisect.png)
+
 
 ## Try it on Minikube
 
@@ -179,11 +195,14 @@ Scripts are provided to help with building the API server container image and de
 
 Once the kubeprovenance API server is running, you can find provenance information by using the following commands:
 
+
 1) Get list of version for a Postgres custom resource instance (client25)
 
 ```
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/versions"
 ```
+
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/versions.png)
 
 2) Get Spec history for Postgres custom resource instance
 
@@ -191,19 +210,36 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory"
 ```
 
-3) Get diff of Postgres custom resource instance between version 1 and version 2
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/spechistory.png)
+
+
+3) Get diff of Postgres custom resource instance between version 1 and version 5
 
 ```
-kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2"
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=5"
 ```
 
-4) Get diff of the field databases for a Postgres custom resource instance between version 1 and version 2
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getfulldiff.png)
+
+
+4) Get diff of the field databases for a Postgres custom resource instance between version 1 and version 5
 
 ```
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=databases"
 ```
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getfielddiff.png)
 
-5) Find out in which version the user 'pallavi' was given password 'pass123'
+
+5) Get diff of the field username for a Postgres custom resource instance between version 1 and version 3
+
+```
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=3&field=username"
+```
+
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/usersfielddiff.png)
+
+
+6) Find out in which version the user 'pallavi' was given password 'pass123'
 
 ```
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&value1=pallavi&field2=password&value2=pass123"
