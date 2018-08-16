@@ -181,6 +181,7 @@ func (o ObjectLineage) Bisect(field1, value1, field2, value2 string) string {
 	for _, version := range s {
 		specs = append(specs, o[version]) //cast Spec to String
 	}
+	// fmt.Println(specs)
 	noSpecFound := fmt.Sprintf("Bisect for field %s: %s, %s: %s was not successful. Custom resource never reached this state.", field1, value1, field2, value2)
 
 	if len(specs) == 1 {
@@ -249,22 +250,25 @@ func (o ObjectLineage) Bisect(field1, value1, field2, value2 string) string {
 
 //TODO: add optional parameters to spechistory route in apiserver.go, and call this method.
 // Right now it is actually unused
-func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) []string {
+func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
 	//order keys so we append in order later, reference: https://blog.golang.org/go-maps-in-action#TOC_7.
-	s := make([]Spec, 0)
-	for _, spec := range o {
-		s = append(s, spec)
+	s := make([]int, 0)
+	for _, value := range o {
+		s = append(s, value.Version)
 	}
-	sort.Slice(s, func(i, j int) bool {
-		return s[i].Version < s[i].Version
-	})
-	specs := make([]string, 0)
-	for _, spec := range s {
+	sort.Ints(s)
+	//get all versions, sort by version, make string array of them
+	specs := make([]Spec, 0)
+	for _, version := range s {
+		specs = append(specs, o[version]) //cast Spec to String
+	}
+	specStrings := make([]string, 0)
+	for _, spec := range specs {
 		if spec.Version >= vNumStart && spec.Version <= vNumEnd {
-			specs = append(specs, spec.String())
+			specStrings = append(specStrings, spec.String())
 		}
 	}
-	return specs
+	return strings.Join(specStrings, "\n")
 }
 
 func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
@@ -426,7 +430,7 @@ func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 func buildSpec(spec map[string]interface{}) Spec {
 	mySpec := *NewSpec()
 	for attribute, value := range spec {
-		var isMap, isStringSlice, isString, isInt, isFloat bool
+		var isMap, isStringSlice, isString, isInt bool
 		//note that I cannot do type assertions because the underlying data
 		//of the interface{} is not a map[string]string or an []slice
 		//so that means that every type assertion to
@@ -444,10 +448,6 @@ func buildSpec(spec map[string]interface{}) Spec {
 		if err := json.Unmarshal(bytes, &plainStringField); err == nil {
 			isString = true
 		}
-		var floatField float64
-		if err := json.Unmarshal(bytes, &floatField); err == nil {
-			isFloat = true
-		}
 		var intField int
 		if err := json.Unmarshal(bytes, &intField); err == nil {
 			isInt = true
@@ -460,7 +460,7 @@ func buildSpec(spec map[string]interface{}) Spec {
 			//passwords = [22d732, 4343e2, 434343b]
 			attributeToSlices := make(map[string][]string, 0)
 			//build this and then i will loop through and add this to the spec
-			for _, mapl := range mapSliceField {
+			for _, mapl := range mapSliceField { //this is an []map[string]string
 
 				for key, data := range mapl {
 					slice, ok := attributeToSlices[key]
@@ -469,11 +469,13 @@ func buildSpec(spec map[string]interface{}) Spec {
 						attributeToSlices[key] = slice
 					} else { // first time seeing this key
 						slice := make([]string, 0)
+						slice = append(slice, data)
 						attributeToSlices[key] = slice
 					}
 				}
 			}
-			//now add to the attributes
+
+			//now add to the spec attributes
 			for key, value := range attributeToSlices {
 				mySpec.AttributeToData[key] = value
 			}
@@ -482,8 +484,6 @@ func buildSpec(spec map[string]interface{}) Spec {
 			mySpec.AttributeToData[attribute] = stringSliceField
 		case isString:
 			mySpec.AttributeToData[attribute] = plainStringField
-		case isFloat:
-			mySpec.AttributeToData[attribute] = floatField
 		case isInt:
 			mySpec.AttributeToData[attribute] = intField
 		default:
