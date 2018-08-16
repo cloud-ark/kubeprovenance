@@ -33,7 +33,7 @@ export PATH=$PATH:/usr/local/go/bin <br/>
 curl -L https://github.com/coreos/etcd/releases/download/v3.2.18/etcd-v3.2.18-linux-amd64.tar.gz -o etcd-v3.2.18-linux-amd64.tar.gz && tar xzvf etcd-v3.2.18-linux-amd64.tar.gz && /bin/cp -f etcd-v3.2.18-linux-amd64/{etcd,etcdctl} /usr/bin && rm -rf etcd-v3.2.18-linux-amd64* <br/>
 **4. Install Docker**<br/>
 Follow steps here: reference: https://docs.docker.com/install/linux/docker-ce/ubuntu/#set-up-the-repository <br/>
-docker version <br/> //check if it is installed
+docker version //check if it is installed <br/>
 
 set up your go workspace, set the GOPATH to it. this is where all your go code should be. <br/>
 mkdir $HOME/goworkspace <br/>
@@ -153,10 +153,10 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=databases"
 ```
 
-5) Find out in which version the field 'abc' was given value 'def'
+5) Find out in which version the user 'pallavi' was given password 'pass123'
 
 ```
-kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field=abc&value=def"
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&value1=pallavi&field2=password&value2=pass123"
 ```
 ![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/spechistory.png)
 ![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getdiff_databases.png)

@@ -216,12 +216,14 @@ func bisect(request *restful.Request, response *restful.Response) {
 
 	var provenanceInfo string
 	provenanceInfo = "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
-	fmt.Println(provenanceInfo)
 
-	field := request.QueryParameter("field")
-	value := request.QueryParameter("value")
+	field1 := request.QueryParameter("field1")
+	value1 := request.QueryParameter("value1")
 
-	provenanceInfo = provenanceInfo + " Field:" + field + "Value: " + value + "\n"
+	field2 := request.QueryParameter("field2")
+	value2 := request.QueryParameter("value2")
+	provenanceInfo = provenanceInfo + " Field1:" + field1 + " Value1: " + value1 + "\n"
+	provenanceInfo = provenanceInfo + " Field2:" + field1 + " Value2: " + value1 + "\n"
 
 	fmt.Printf("ProvenanceInfo:%v", provenanceInfo)
 
@@ -232,7 +234,7 @@ func bisect(request *restful.Request, response *restful.Response) {
 		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
 		response.Write([]byte(s))
 	} else {
-		response.Write([]byte("Version: " + intendedProvObj.ObjectFullHistory.Bisect(field, value)))
+		response.Write([]byte("Version: " + intendedProvObj.ObjectFullHistory.Bisect(field1, value1, field2, value2)))
 		response.Write([]byte(string("\n")))
 	}
 }

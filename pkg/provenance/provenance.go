@@ -41,7 +41,7 @@ type Event v1beta1.Event
 //for example a postgres
 type ObjectLineage map[int]Spec
 type Spec struct {
-	AttributeToData map[string]string
+	AttributeToData map[string]interface{}
 	Version         int
 }
 
@@ -110,7 +110,7 @@ func NewProvenanceOfObject() *ProvenanceOfObject {
 
 func NewSpec() *Spec {
 	var s Spec
-	s.AttributeToData = make(map[string]string)
+	s.AttributeToData = make(map[string]interface{})
 	return &s
 }
 
@@ -170,26 +170,81 @@ func (o ObjectLineage) SpecHistory() string {
 	}
 	return strings.Join(specs, "\n")
 }
-func (o ObjectLineage) Bisect(field, value string) string {
-	s := make([]Spec, 0)
-	for _, spec := range o {
-		s = append(s, spec)
+func (o ObjectLineage) Bisect(field1, value1, field2, value2 string) string {
+	s := make([]int, 0)
+	for _, value := range o {
+		s = append(s, value.Version)
 	}
-	sort.Slice(s, func(i, j int) bool {
-		return s[i].Version < s[i].Version
-	})
-	if len(s) == 1 {
+	sort.Ints(s)
+	//get all versions, sort by version, make string array of them
+	specs := make([]Spec, 0)
+	for _, version := range s {
+		specs = append(specs, o[version]) //cast Spec to String
+	}
+	noSpecFound := fmt.Sprintf("Bisect for field %s: %s, %s: %s was not successful. Custom resource never reached this state.", field1, value1, field2, value2)
+
+	if len(specs) == 1 {
 		//check
-		if s[0].AttributeToData[field] == value {
-			return strconv.Itoa(1)
+
+		u, ok1 := specs[0].AttributeToData[field1]
+		if !ok1 {
+			fmt.Printf("Field %s not found.\n", field1)
+			return noSpecFound
+		}
+		p, ok2 := specs[0].AttributeToData[field2]
+		if !ok2 {
+			fmt.Printf("Field %s not found.\n", field2)
+			return noSpecFound
+		}
+		users, ok1 := p.([]string)
+		if !ok1 {
+			fmt.Printf("Type assertion failed. Underlying data is incorrect and is not a slice of strings: %s\n", u)
+			return noSpecFound
+		}
+		passwords, ok2 := u.([]string)
+		if !ok2 {
+			fmt.Printf("Type assertion failed. Underlying data is incorrect and is not a slice of strings: %s\n", p)
+			return noSpecFound
+		}
+
+		for i, v := range users {
+			if value1 == v && passwords[i] == value2 {
+				return "Version: " + strconv.Itoa(1)
+			}
+		}
+	} else { //there is more than one spec. More than one Event found in the log
+		for _, spec := range specs {
+			//check
+			u, ok1 := spec.AttributeToData[field1]
+			if !ok1 {
+				fmt.Printf("Field %s not found.\n", field1)
+				return noSpecFound
+			}
+			p, ok2 := spec.AttributeToData[field2]
+			if !ok2 {
+				fmt.Printf("Field %s not found.\n", field2)
+				return noSpecFound
+			}
+			users, ok1 := p.([]string)
+			if !ok1 {
+				fmt.Printf("Type assertion failed. Underlying data is incorrect and is not a slice of strings: %s\n", u)
+				return noSpecFound
+			}
+			passwords, ok2 := u.([]string)
+			if !ok2 {
+				fmt.Printf("Type assertion failed. Underlying data is incorrect and is not a slice of strings: %s\n", p)
+				return noSpecFound
+			}
+
+			for i1, v1 := range users {
+				if value1 == v1 && passwords[i1] == value2 {
+					return "Version: " + strconv.Itoa(spec.Version)
+				}
+			}
 		}
 	}
-	for _, v := range s {
-		if v.AttributeToData[field] == value {
-			return strconv.Itoa(v.Version)
-		}
-	}
-	return strconv.Itoa(-1)
+
+	return noSpecFound
 }
 
 //TODO: add optional parameters to spechistory route in apiserver.go, and call this method.
@@ -359,6 +414,8 @@ func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 	// fmt.Println(spec)
 	if ok {
 		fmt.Println("Successfully parsed")
+	} else {
+		fmt.Println("Unsuccessful parse")
 	}
 	newVersion := len(objectProvenance.ObjectFullHistory) + 1
 	newSpec := buildSpec(spec)
@@ -369,16 +426,73 @@ func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 func buildSpec(spec map[string]interface{}) Spec {
 	mySpec := *NewSpec()
 	for attribute, value := range spec {
-		bytes, err := json.MarshalIndent(value, "", "    ")
-		if err != nil {
-			fmt.Println("Error could not marshal json: " + err.Error())
+		var isMap, isStringSlice, isString, isInt, isFloat bool
+		//note that I cannot do type assertions because the underlying data
+		//of the interface{} is not a map[string]string or an []slice
+		//so that means that every type assertion to
+		//value.([]map[string]string) fails, neither will []string. have to cast, store that data as desired
+		var mapSliceField []map[string]string
+		bytes, _ := json.MarshalIndent(value, "", "    ")
+		if err := json.Unmarshal(bytes, &mapSliceField); err == nil {
+			isMap = true
 		}
-		attributeData := string(bytes)
-		mySpec.AttributeToData[attribute] = attributeData
+		var stringSliceField []string
+		if err := json.Unmarshal(bytes, &stringSliceField); err == nil {
+			isStringSlice = true
+		}
+		var plainStringField string
+		if err := json.Unmarshal(bytes, &plainStringField); err == nil {
+			isString = true
+		}
+		var floatField float64
+		if err := json.Unmarshal(bytes, &floatField); err == nil {
+			isFloat = true
+		}
+		var intField int
+		if err := json.Unmarshal(bytes, &intField); err == nil {
+			isInt = true
+		}
+		switch {
+		case isMap:
+			//we don't know the keys and don't know the data
+			//could be this for example:
+			//usernames = [daniel, steve, jenny]
+			//passwords = [22d732, 4343e2, 434343b]
+			attributeToSlices := make(map[string][]string, 0)
+			//build this and then i will loop through and add this to the spec
+			for _, mapl := range mapSliceField {
+
+				for key, data := range mapl {
+					slice, ok := attributeToSlices[key]
+					if ok {
+						slice = append(slice, data)
+						attributeToSlices[key] = slice
+					} else { // first time seeing this key
+						slice := make([]string, 0)
+						attributeToSlices[key] = slice
+					}
+				}
+			}
+			//now add to the attributes
+			for key, value := range attributeToSlices {
+				mySpec.AttributeToData[key] = value
+			}
+
+		case isStringSlice:
+			mySpec.AttributeToData[attribute] = stringSliceField
+		case isString:
+			mySpec.AttributeToData[attribute] = plainStringField
+		case isFloat:
+			mySpec.AttributeToData[attribute] = floatField
+		case isInt:
+			mySpec.AttributeToData[attribute] = intField
+		default:
+			fmt.Println(value)
+			fmt.Println("Error with the spec data. not a map slice, float, int, string slice, or string.")
+		}
 	}
 	return mySpec
 }
-
 func printMaps() {
 	fmt.Println("Printing kindVersionMap")
 	for key, value := range kindVersionMap {
