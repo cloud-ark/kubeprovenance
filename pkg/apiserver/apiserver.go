@@ -231,29 +231,31 @@ func getHistory(request *restful.Request, response *restful.Response) {
 func bisect(request *restful.Request, response *restful.Response) {
 	fmt.Println("Inside bisect")
 	resourceName := request.PathParameter("resource-id")
-	requestPath := request.Request.URL.Path
-	resourcePathSlice := strings.Split(requestPath, "/")
-	resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
-
-	var provenanceInfo string
-	provenanceInfo = "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
-	//TODO: find out how to get entire query string, split on &, and pass in an array of fields/values to the bisect method.
-	field1 := request.QueryParameter("field1")
-	value1 := request.QueryParameter("value1")
-
-	field2 := request.QueryParameter("field2")
-	value2 := request.QueryParameter("value2")
-	provenanceInfo = provenanceInfo + " Field1:" + field1 + " Value1: " + value1
-	provenanceInfo = provenanceInfo + " Field2:" + field2 + " Value2: " + value2 + "\n"
-
-	fmt.Printf("ProvenanceInfo:%v", provenanceInfo)
-
+	requestPath := request.Request.URL.String()
+	// resourcePathSlice := strings.Split(requestPath, "/")
+	// resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
+	fmt.Println(requestPath)
+	strs := strings.Split(requestPath, "/")
+	// assuming that the last slash is where the query starts.
+	// so the URL parameters are rearranged alphabetically
+	// apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&field2=password&value1=pallavi&value2=pass123
+	// field1=username&field2=password&value1=pallavi&value2=pass123
+	args := strings.Split(strs[len(strs)-1], "?")[1] //get rid of bisect?
+	argMap := make(map[string]string)
+	argsArray := strings.Split(args, "&")
+	for _, val := range argsArray {
+		fieldToValue := strings.Split(val, "=")
+		argMap[fieldToValue[0]] = fieldToValue[1]
+	}
+	// var provenanceInfo string
+	// provenanceInfo = "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
+	// fmt.Println(provenanceInfo)
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
 	if intendedProvObj == nil {
 		s := fmt.Sprintf("Could not find any provenance history for resource name: %s", resourceName)
 		response.Write([]byte(s))
 	} else {
-		response.Write([]byte("Version: " + intendedProvObj.ObjectFullHistory.Bisect(field1, value1, field2, value2)))
+		response.Write([]byte(intendedProvObj.ObjectFullHistory.Bisect(argMap)))
 		response.Write([]byte(string("\n")))
 	}
 }

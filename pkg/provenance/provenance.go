@@ -43,6 +43,7 @@ type ObjectLineage map[int]Spec
 type Spec struct {
 	AttributeToData map[string]interface{}
 	Version         int
+	Timestamp       string
 }
 
 type ProvenanceOfObject struct {
@@ -147,11 +148,16 @@ func (o ObjectLineage) GetVersions() string {
 	}
 	sort.Ints(s)
 	//get all versions, sort by version, make string array of them
-	versions := make([]string, 0)
+	specs := make([]Spec, 0)
 	for _, version := range s {
-		versions = append(versions, fmt.Sprint(version)) //cast int to string
+		specs = append(specs, o[version])
 	}
-	return "[" + strings.Join(versions, ", ") + "]\n"
+	//get all versions, sort by version, make string array of them
+	outputs := make([]string, 0)
+	for _, spec := range specs {
+		outputs = append(outputs, fmt.Sprintf("%s: Version %d", spec.Timestamp, spec.Version)) //cast int to string
+	}
+	return "[" + strings.Join(outputs, ", \n") + "]\n"
 }
 
 //what happens if I delete the object?
@@ -195,7 +201,7 @@ func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
 	return strings.Join(specStrings, "\n")
 }
 
-func (o ObjectLineage) Bisect(field1, value1, field2, value2 string) string {
+func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	s := make([]int, 0)
 	for _, value := range o {
 		s = append(s, value.Version)
@@ -206,71 +212,82 @@ func (o ObjectLineage) Bisect(field1, value1, field2, value2 string) string {
 	for _, version := range s {
 		specs = append(specs, o[version]) //cast Spec to String
 	}
-	// fmt.Println(specs)
-	noSpecFound := fmt.Sprintf("Bisect for field %s: %s, %s: %s was not successful. Custom resource never reached this state.", field1, value1, field2, value2)
-
-	if len(specs) == 1 {
-		//check
-
-		u, ok1 := specs[0].AttributeToData[field1]
-		if !ok1 {
-			fmt.Printf("Field %s not found.\n", field1)
-			return noSpecFound
-		}
-		p, ok2 := specs[0].AttributeToData[field2]
-		if !ok2 {
-			fmt.Printf("Field %s not found.\n", field2)
-			return noSpecFound
-		}
-		users, ok1 := p.([]string)
-		if !ok1 {
-			fmt.Printf("Type assertion failed. Underlying data is incorrect and is not a slice of strings: %s\n", u)
-			return noSpecFound
-		}
-		passwords, ok2 := u.([]string)
-		if !ok2 {
-			fmt.Printf("Type assertion failed. Underlying data is incorrect and is not a slice of strings: %s\n", p)
-			return noSpecFound
-		}
-
-		for i, v := range users {
-			if value1 == v && passwords[i] == value2 {
-				return "Version: " + strconv.Itoa(1)
+	allAttributeValuePairs := make([][]string, 0)
+	for key, value := range argMap {
+		attributeValueSlice := make([]string, 2)
+		if strings.Contains(key, "field") {
+			//find associated value in argMap
+			fieldNum, err := strconv.Atoi(key[5:])
+			if err != nil {
+				return fmt.Sprintf("Failure, could not convert %s. Invalid Query parameters.", key)
 			}
-		}
-	} else { //there is more than one spec. More than one Event found in the log
-		for _, spec := range specs {
-			//check
-			u, ok1 := spec.AttributeToData[field1]
-			if !ok1 {
-				fmt.Printf("Field %s not found.\n", field1)
-				return noSpecFound
+			//find assocaited value1
+			valueOfKey, ok := argMap["value"+strconv.Itoa(fieldNum)]
+			if !ok {
+				return fmt.Sprintf("Could not find an associated value for field: %s", key)
 			}
-			p, ok2 := spec.AttributeToData[field2]
-			if !ok2 {
-				fmt.Printf("Field %s not found.\n", field2)
-				return noSpecFound
-			}
-			users, ok1 := u.([]string)
-			if !ok1 {
-				fmt.Printf("Type assertion failed. Underlying data is incorrect and is not a slice of strings: %s\n", u)
-				return noSpecFound
-			}
-			passwords, ok2 := p.([]string)
-			if !ok2 {
-				fmt.Printf("Type assertion failed. Underlying data is incorrect and is not a slice of strings: %s\n", p)
-				return noSpecFound
-			}
-
-			for i1, v1 := range users {
-				if value1 == v1 && passwords[i1] == value2 {
-					return "Version: " + strconv.Itoa(spec.Version)
-				}
-			}
+			attributeValueSlice[0] = value
+			attributeValueSlice[1] = valueOfKey
+			allAttributeValuePairs = append(allAttributeValuePairs, attributeValueSlice)
 		}
 	}
+	// fmt.Printf("attributeValuePairs%s\n", allAttributeValuePairs)
+	andGate := make([]bool, len(allAttributeValuePairs))
+	for _, spec := range specs {
+		index := 0
+		satisfied := false
+		for _, pair := range allAttributeValuePairs {
+			qkey := pair[0]
+			qval := pair[1]
+			//each qkey qval has to be satisfied
+			for mkey, mvalue := range spec.AttributeToData {
+				vString, ok1 := mvalue.(string)
+				if ok1 {
+					fmt.Println("a")
+					if qkey == mkey && qval == vString {
+						satisfied = true
+						break
+					}
+				}
+				vStringSlice, ok2 := mvalue.([]string)
+				if ok2 {
+					fmt.Println("b")
+					for _, str := range vStringSlice {
+						if qkey == mkey && qval == str {
+							satisfied = true
+							break
+						}
+					}
+				}
+				vSliceMap, ok3 := mvalue.([]map[string]string)
+				if ok3 {
+					fmt.Println("c")
+					for _, mymap := range vSliceMap {
+						for okey, ovalue := range mymap {
+							if qkey == okey && qval == ovalue {
+								satisfied = true
+								break
+							}
+						}
+					}
+				}
 
-	return noSpecFound
+			}
+			andGate[index] = satisfied
+			index += 1
+		}
+		allTrue := true
+		for _, b := range andGate {
+			if !b {
+				allTrue = false
+			}
+		}
+		fmt.Println(andGate)
+		if allTrue {
+			return fmt.Sprintf("Version: %d", spec.Version)
+		}
+	}
+	return "No version found that matches the query."
 }
 
 func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
@@ -278,38 +295,16 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	sp1 := o[vNumStart]
 	sp2 := o[vNumEnd]
 	for attribute, data1 := range sp1.AttributeToData {
-		var stringSlice1, stringSlice2 string
-
-		sliceStringData1, okTypeAssertion1 := data1.([]string)
-		if okTypeAssertion1 {
-			stringSlice1 = strings.Join(sliceStringData1, " ")
-		}
-
 		data2, ok := sp2.AttributeToData[attribute] //check if the attribute even exists
 		if ok {
-
-			sliceStringData2, okTypeAssertion2 := data2.([]string) //type assertion to compare slices
-			if okTypeAssertion2 {
-				stringSlice2 = strings.Join(sliceStringData2, " ")
-			}
-
-			if okTypeAssertion1 && okTypeAssertion2 {
-				if stringSlice1 != stringSlice2 {
-					fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
-					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, stringSlice1)
-					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, stringSlice2)
-				} else {
-					// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
-				}
+			if data1 != data2 {
+				fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
+				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
+				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
 			} else {
-				if data1 != data2 {
-					fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
-					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
-					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
-				} else {
-					// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
-				}
+				// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
 			}
+
 		} else { //for the case where a key exists in spec 1 that doesn't exist in spec 2
 			fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
 			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
@@ -419,8 +414,9 @@ func parse() {
 		}
 
 		requestobj := event.RequestObject
+		timestamp := fmt.Sprint(event.RequestReceivedTimestamp.Format("2006-01-02 15:04:05"))
 		//now parse the spec into this provenanceObject that we found or created
-		ParseRequestObject(provObjPtr, requestobj.Raw)
+		ParseRequestObject(provObjPtr, requestobj.Raw, timestamp)
 	}
 	if err := scanner.Err(); err != nil {
 		panic(err)
@@ -428,7 +424,7 @@ func parse() {
 	fmt.Println("Done parsing.")
 }
 
-func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []byte) {
+func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []byte, timestamp string) {
 	fmt.Println("entering parse request")
 	var result map[string]interface{}
 	json.Unmarshal([]byte(requestObjBytes), &result)
@@ -466,11 +462,12 @@ func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 	if ok {
 		fmt.Println("Successfully parsed")
 	} else {
-		fmt.Println("Unsuccessful parse")
+		fmt.Println("Unsuccessful parsed")
 	}
 	newVersion := len(objectProvenance.ObjectFullHistory) + 1
 	newSpec := buildSpec(spec)
 	newSpec.Version = newVersion
+	newSpec.Timestamp = timestamp
 	objectProvenance.ObjectFullHistory[newVersion] = newSpec
 	fmt.Println("exiting parse request")
 }
@@ -501,32 +498,7 @@ func buildSpec(spec map[string]interface{}) Spec {
 		}
 		switch {
 		case isMap:
-			//we don't know the keys and don't know the data
-			//could be this for example:
-			//usernames = [daniel, steve, jenny]
-			//passwords = [22d732, 4343e2, 434343b]
-			attributeToSlices := make(map[string][]string, 0)
-			//build this and then i will loop through and add this to the spec
-			for _, mapl := range mapSliceField { //this is an []map[string]string
-
-				for key, data := range mapl {
-					slice, ok := attributeToSlices[key]
-					if ok {
-						slice = append(slice, data)
-						attributeToSlices[key] = slice
-					} else { // first time seeing this key
-						slice := make([]string, 0)
-						slice = append(slice, data)
-						attributeToSlices[key] = slice
-					}
-				}
-			}
-
-			//now add to the spec attributes
-			for key, value := range attributeToSlices {
-				mySpec.AttributeToData[key] = value
-			}
-
+			mySpec.AttributeToData[attribute] = mapSliceField
 		case isStringSlice:
 			mySpec.AttributeToData[attribute] = stringSliceField
 		case isString:
