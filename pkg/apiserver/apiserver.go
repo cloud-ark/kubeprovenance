@@ -234,7 +234,7 @@ func bisect(request *restful.Request, response *restful.Response) {
 	requestPath := request.Request.URL.String()
 	// resourcePathSlice := strings.Split(requestPath, "/")
 	// resourceKind := resourcePathSlice[6] // Kind is 7th element in the slice
-	fmt.Println(requestPath)
+	// fmt.Println(requestPath)
 	strs := strings.Split(requestPath, "/")
 	// assuming that the last slash is where the query starts.
 	// so the URL parameters are rearranged alphabetically

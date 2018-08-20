@@ -207,12 +207,15 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 		s = append(s, value.Version)
 	}
 	sort.Ints(s)
-	//get all versions, sort by version, make string array of them
+	//get all versions, sort by version, and then build the spec array in order.
+	//if the query conditions are true more than once, want to find the earliest one.
 	specs := make([]Spec, 0)
 	for _, version := range s {
-		specs = append(specs, o[version]) //cast Spec to String
+		specs = append(specs, o[version])
 	}
-	allAttributeValuePairs := make([][]string, 0)
+	allQueryPairs := make([][]string, 0)
+	//this section is storing the mappings from the query, into the allQueryPairs object
+	//these are the queries, each element must be satisfied somewhere in the spec for the bisect to succeed
 	for key, value := range argMap {
 		attributeValueSlice := make([]string, 2)
 		if strings.Contains(key, "field") {
@@ -228,30 +231,59 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 			}
 			attributeValueSlice[0] = value
 			attributeValueSlice[1] = valueOfKey
-			allAttributeValuePairs = append(allAttributeValuePairs, attributeValueSlice)
+			allQueryPairs = append(allQueryPairs, attributeValueSlice)
 		}
 	}
-	// fmt.Printf("attributeValuePairs%s\n", allAttributeValuePairs)
-	andGate := make([]bool, len(allAttributeValuePairs))
+	// fmt.Printf("attributeValuePairs%s\n", allQueryPairs)
+
+	//this section is to build the attributeRelationships from the Query
+	//will use this to ensure that fields belonging to the same top-level
+	//attribute, will be treated as a joint query. So you can't just
+	//ask if username ever is daniel and password is ever 223843, because
+	//it could find that in different parts of the spec. they both must be satisfied in the same map object
+	andGate := make([]bool, len(allQueryPairs))
+	mapRelationships := make(map[string][][]string, 0) // a map from top level attribute to array of pairs (represented as 2 len array)
 	for _, spec := range specs {
+		for _, pair := range allQueryPairs {
+			for mkey, mvalue := range spec.AttributeToData {
+
+				qkey := pair[0] //query key
+				//each qkey qval has to be satisfied
+				vSliceMap, ok3 := mvalue.([]map[string]string)
+				if ok3 {
+					for _, mymap := range vSliceMap {
+						for okey, _ := range mymap {
+							if qkey == okey {
+								pairs, ok := mapRelationships[mkey]
+								if ok {
+									mapRelationships[mkey] = append(mapRelationships[mkey], pair)
+								} else {
+									pairs = make([][]string, 0)
+									pairs = append(pairs, pair)
+									mapRelationships[mkey] = pairs
+								}
+
+							}
+						}
+					}
+				}
+			}
+		}
 		index := 0
-		satisfied := false
-		for _, pair := range allAttributeValuePairs {
+		for _, pair := range allQueryPairs {
 			qkey := pair[0]
 			qval := pair[1]
-			//each qkey qval has to be satisfied
+			satisfied := false
 			for mkey, mvalue := range spec.AttributeToData {
 				vString, ok1 := mvalue.(string)
-				if ok1 {
-					fmt.Println("a")
+				if ok1 { //checking string
 					if qkey == mkey && qval == vString {
 						satisfied = true
 						break
 					}
 				}
 				vStringSlice, ok2 := mvalue.([]string)
-				if ok2 {
-					fmt.Println("b")
+				if ok2 { //p
 					for _, str := range vStringSlice {
 						if qkey == mkey && qval == str {
 							satisfied = true
@@ -262,16 +294,45 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				vSliceMap, ok3 := mvalue.([]map[string]string)
 				if ok3 {
 					fmt.Println("c")
-					for _, mymap := range vSliceMap {
-						for okey, ovalue := range mymap {
-							if qkey == okey && qval == ovalue {
-								satisfied = true
-								break
+					for _, mymap := range vSliceMap { //fcheck if there is
+						// other necessary requirements for this mkey.
+						// if key exists, then multiple attributes have to be represented
+						// at once for it to be satisfied
+						attributeCombinedQuery, ok := mapRelationships[mkey]
+						if ok { //ensure multiple attributes are jointly satisfied
+							jointQueryResults := make([]bool, len(attributeCombinedQuery))
+							i := 0
+							for _, pair := range attributeCombinedQuery {
+								qckey := pair[0]
+								qcval := pair[1]
+								for okey, ovalue := range mymap {
+									if qckey == okey && qcval == ovalue {
+										jointQueryResults[i] = true
+									}
+								}
+								i += 1
+							}
+							allTrue := true
+							for _, b := range jointQueryResults {
+								if !b {
+									allTrue = false
+								}
+							}
+							//this is for a case where username AND password must be
+							// the query value, in some object. Because they belong to the same
+							//top-level object 'users'. so they must be satisfied together
+							satisfied = allTrue
+						} else { //check if this one condition, say username=daniel is satisfied
+
+							for okey, ovalue := range mymap {
+								if qkey == okey && qval == ovalue {
+									satisfied = true
+									break
+								}
 							}
 						}
 					}
 				}
-
 			}
 			andGate[index] = satisfied
 			index += 1
@@ -281,8 +342,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 			if !b {
 				allTrue = false
 			}
-		}
-		fmt.Println(andGate)
+		} //all indexes in andGate must be true
 		if allTrue {
 			return fmt.Sprintf("Version: %d", spec.Version)
 		}
@@ -297,12 +357,54 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	for attribute, data1 := range sp1.AttributeToData {
 		data2, ok := sp2.AttributeToData[attribute] //check if the attribute even exists
 		if ok {
-			if data1 != data2 {
+			str1, ok1 := data1.(string)
+			str2, ok2 := data2.(string)
+			if ok1 && ok2 && str1 != str2 {
 				fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
 				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
 				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
 			} else {
 				// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
+			}
+			int1, ok1 := data1.(int)
+			int2, ok2 := data2.(int)
+			if ok1 && ok2 && int1 != int2 {
+				fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
+				fmt.Fprintf(&b, "\tVersion %d: %d\n", vNumStart, int1)
+				fmt.Fprintf(&b, "\tVersion %d: %d\n", vNumEnd, int2)
+			} else {
+				// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
+			}
+			strArray1, ok1 := data1.([]string)
+			strArray2, ok2 := data2.([]string)
+			if ok1 && ok2 {
+				for _, str := range strArray1 {
+					found := false
+					for _, val := range strArray2 {
+						if str == val {
+							found = true
+						}
+					}
+					if !found { // if an element does not have a match in the next version
+						fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
+						fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strArray1)
+						fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strArray2)
+					}
+				}
+			}
+			strMap1, ok1 := data1.([]map[string]string)
+			strMap2, ok2 := data2.([]map[string]string)
+			if ok1 && ok2 {
+				if len(strMap1) != len(strMap2) {
+					fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
+					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
+					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
+				}
+				if ToString(strMap1) != ToString(strMap2) {
+					fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
+					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
+					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
+				}
 			}
 
 		} else { //for the case where a key exists in spec 1 that doesn't exist in spec 2
@@ -321,41 +423,74 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	}
 	return b.String()
 }
-
+func ToString(mapsp []map[string]string) string {
+	var b strings.Builder
+	for _, m := range mapsp {
+		fmt.Fprintf(&b, "map{ ")
+		for attribute, data := range m {
+			fmt.Fprintf(&b, "%s: %s\n", attribute, data)
+		}
+		fmt.Fprintf(&b, " }\n")
+	}
+	return b.String()
+}
 func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) string {
 	var b strings.Builder
 	data1, ok1 := o[vNumStart].AttributeToData[fieldName]
 	data2, ok2 := o[vNumEnd].AttributeToData[fieldName]
-	var stringSlice1, stringSlice2 string
-
-	sliceStringData1, okTypeAssertion1 := data1.([]string)
-	if okTypeAssertion1 {
-		stringSlice1 = strings.Join(sliceStringData1, " ")
-	}
-	sliceStringData2, okTypeAssertion2 := data2.([]string) //type assertion to compare slices
-	if okTypeAssertion2 {
-		stringSlice2 = strings.Join(sliceStringData2, " ")
-	}
 
 	switch {
 	case ok1 && ok2:
-		if okTypeAssertion1 && okTypeAssertion2 {
-			if stringSlice1 != stringSlice2 {
-				fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
-				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, stringSlice1)
-				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, stringSlice2)
-			} else {
-				// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
-			}
+		str1, ok1 := data1.(string)
+		str2, ok2 := data2.(string)
+		if ok1 && ok2 && str1 != str2 {
+			fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
+			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
+			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
 		} else {
-			if data1 != data2 {
-				fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
-				fmt.Fprintf(&b, "\tSpec version %d: %s\n", vNumStart, data1)
-				fmt.Fprintf(&b, "\tSpec version %d: %s\n", vNumEnd, data2)
-			} else {
-				// fmt.Fprintf(&b, "No difference for attribute %s \n", fieldName)
+			// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
+		}
+		int1, ok1 := data1.(int)
+		int2, ok2 := data2.(int)
+		if ok1 && ok2 && int1 != int2 {
+			fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
+			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
+			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
+		} else {
+			// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
+		}
+		strArray1, ok1 := data1.([]string)
+		strArray2, ok2 := data2.([]string)
+		if ok1 && ok2 {
+			for _, str := range strArray1 {
+				found := false
+				for _, val := range strArray2 {
+					if str == val {
+						found = true
+					}
+				}
+				if !found { // if an element does not have a match in the next version
+					fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
+					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strArray1)
+					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strArray2)
+				}
 			}
 		}
+		strMap1, ok1 := data1.([]map[string]string)
+		strMap2, ok2 := data2.([]map[string]string)
+		if ok1 && ok2 {
+			if len(strMap1) != len(strMap2) {
+				fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
+				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
+				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
+			}
+			if ToString(strMap1) != ToString(strMap2) {
+				fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
+				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
+				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
+			}
+		}
+
 	case !ok1 && ok2:
 		fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
 		fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, "No attribute found.")
