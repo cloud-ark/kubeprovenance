@@ -46,16 +46,20 @@ apt-get install -y gcc make socat git<br/>
 wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz <br/>
 sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz <br/>
 export PATH=$PATH:/usr/local/go/bin <br/>
+export GOROOT=$PATH:/usr/local/go <br/>
+
+set up your go workspace, set the GOPATH to it. this is where all your go code should be. <br/>
+mkdir $HOME/goworkspace <br/>
+mkdir $HOME/goworkspace/src <br/>
+mkdir $HOME/goworkspace/bin <br/>
+
+export GOPATH=$HOME/goworkspace <br/>
 
 **3. Install etcd3.2.18:**
 curl -L https://github.com/coreos/etcd/releases/download/v3.2.18/etcd-v3.2.18-linux-amd64.tar.gz -o etcd-v3.2.18-linux-amd64.tar.gz && tar xzvf etcd-v3.2.18-linux-amd64.tar.gz && /bin/cp -f etcd-v3.2.18-linux-amd64/{etcd,etcdctl} /usr/bin && rm -rf etcd-v3.2.18-linux-amd64* <br/>
 **4. Install Docker**<br/>
 Follow steps here: reference: https://docs.docker.com/install/linux/docker-ce/ubuntu/#set-up-the-repository <br/>
 docker version //check if it is installed <br/>
-
-set up your go workspace, set the GOPATH to it. this is where all your go code should be. <br/>
-mkdir $HOME/goworkspace <br/>
-export GOPATH=$HOME/goworkspace <br/>
 
 **5. Get The Kubernetes Source Code:** <br/>
 git clone https://github.com/kubernetes/kubernetes $GOPATH/src/k8s.io/kubernetes <br/>
