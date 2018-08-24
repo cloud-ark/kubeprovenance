@@ -169,7 +169,7 @@ func (o ObjectLineage) SpecHistory() string {
 		s = append(s, value.Version)
 	}
 	sort.Ints(s)
-	//get all versions, sort by version, make string array of them
+	//get all versions, sort by version, make slice of specs
 	specs := make([]Spec, 0)
 	for _, version := range s {
 		specs = append(specs, o[version]) //cast Spec to String
@@ -200,7 +200,14 @@ func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
 	}
 	return strings.Join(specStrings, "\n")
 }
+//Steps taken in Bisect are:
+//Sort the spec elements in order of their version number.
 
+//Outer loop is going through each of the versions in order.
+//First I parse the query into a slice of field/value pairs.
+//Then build the map of related fields that belong to the same top level attribute
+// and need to be found in the same underlying map. Then I looped over the
+//field value pairs, searched based on the type.
 func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	s := make([]int, 0)
 	for _, value := range o {
@@ -236,12 +243,11 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	}
 	// fmt.Printf("attributeValuePairs%s\n", allQueryPairs)
 
-	//this section is to build the attributeRelationships from the Query
+	//This section is to build the attributeRelationships from the Query
 	//will use this to ensure that fields belonging to the same top-level
 	//attribute, will be treated as a joint query. So you can't just
 	//ask if username ever is daniel and password is ever 223843, because
-	//it could find that in different parts of the spec. they both must be satisfied in the same map object
-	andGate := make([]bool, len(allQueryPairs))
+	//it could find that in different parts of the spec. They both must be satisfied in the same map object
 	mapRelationships := make(map[string][][]string, 0) // a map from top level attribute to array of pairs (represented as 2 len array)
 	for _, spec := range specs {
 		for _, pair := range allQueryPairs {
@@ -269,21 +275,28 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				}
 			}
 		}
+		//every element represents whether a query pair was satisfied. they all must be true.
+		//if they all are true, then that will be the version where the query is first satisfied.
+		andGate := make([]bool, len(allQueryPairs))
 		index := 0
 		for _, pair := range allQueryPairs {
 			qkey := pair[0]
 			qval := pair[1]
 			satisfied := false
 			for mkey, mvalue := range spec.AttributeToData {
+				//search through the attributes in the spec. Possible types
+				//are string, array of strings, and a map. so I will need to check these
+				//with different search methods
 				vString, ok1 := mvalue.(string)
-				if ok1 { //checking string
+				if ok1 { //if underlying value in the spec is a string
 					if qkey == mkey && qval == vString {
 						satisfied = true
 						break
 					}
 				}
+
 				vStringSlice, ok2 := mvalue.([]string)
-				if ok2 { //p
+				if ok2 { //if it is a slice of strings
 					for _, str := range vStringSlice {
 						if qkey == mkey && qval == str {
 							satisfied = true
@@ -291,19 +304,38 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 						}
 					}
 				}
-				vSliceMap, ok3 := mvalue.([]map[string]string)
+
+				vSliceMapSlice, ok3 := mvalue.([]map[string]string)
+				//if it is a map, will need to check the underlying data to see
+				//if the qkey/qval exists below the top level attribute. username exists
+				//in the map contained by the 'users' attribute in the spec object, for example.
 				if ok3 {
-					fmt.Println("c")
-					for _, mymap := range vSliceMap { //fcheck if there is
+					// fmt.Println("c")
+					for _, mymap := range vSliceMapSlice { //looping through each elem in the mapSlice
+						// check if there is any
 						// other necessary requirements for this mkey.
-						// if key exists, then multiple attributes have to be represented
-						// at once for it to be satisfied
+						// if key exists, then multiple attributes have to be satisfied
+						// at once for the query to work.
+
+
+						//For example, say fields username and password belong to
+						//an attribute in the spec called 'users'. The username and password
+						//must be satisfied together in some element of vSliceMap since.
+						//It cannot be the case where username is found in index 1 of vSliceMapSlice and password cannot
+						//is found in index 2 of vSliceMapSlice.
+
+						// find all the related attributes associated with the top-level specs
+						// attribute mkey. this would be users for the postgres crd example.
 						attributeCombinedQuery, ok := mapRelationships[mkey]
+
 						if ok { //ensure multiple attributes are jointly satisfied
 							jointQueryResults := make([]bool, len(attributeCombinedQuery))
+							//jointQueryResults is a boolean slice that represents the satisfiability
+							//of the joint query. (all need to be true for it to have found qkey to be true)
 							i := 0
 							for _, pair := range attributeCombinedQuery {
-								qckey := pair[0]
+								qckey := pair[0] //for each field/value pair, must find each qckey in
+																 //the map object mymap
 								qcval := pair[1]
 								for okey, ovalue := range mymap {
 									if qckey == okey && qcval == ovalue {
@@ -318,12 +350,11 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 									allTrue = false
 								}
 							}
-							//this is for a case where username AND password must be
-							// the query value, in some object. Because they belong to the same
-							//top-level object 'users'. so they must be satisfied together
-							satisfied = allTrue
-						} else { //check if this one condition, say username=daniel is satisfied
-
+							satisfied = allTrue //qkey may be satisfied.
+						} else {
+							//if there is no attribute relationship, but the mapslice type assert was fine,
+							//only need to find an okey in one of the maps, where that query field/value (qkey,qvalue)
+							//is satisfied.
 							for okey, ovalue := range mymap {
 								if qkey == okey && qval == ovalue {
 									satisfied = true
