@@ -226,12 +226,12 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	for key, value := range argMap {
 		attributeValueSlice := make([]string, 2)
 		if strings.Contains(key, "field") {
-			//find associated value in argMap
+			//find associated value in argMap, the query params are such that field1=bar, field2=foo
 			fieldNum, err := strconv.Atoi(key[5:])
 			if err != nil {
 				return fmt.Sprintf("Failure, could not convert %s. Invalid Query parameters.", key)
 			}
-			//find assocaited value1
+			//find associated value by looking in the map for value+fieldNum.
 			valueOfKey, ok := argMap["value"+strconv.Itoa(fieldNum)]
 			if !ok {
 				return fmt.Sprintf("Could not find an associated value for field: %s", key)

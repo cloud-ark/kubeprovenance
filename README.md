@@ -5,15 +5,15 @@ A Kubernetes Aggregated API Server to find out Provenance/Lineage information fo
 ## What is it?
 
 
-Kubernetes custom resources extend base API to manage third-party platform elements declaratively. 
-It is important to track chronology of declarative operations performed on custom resources to understand 
-how these operations affect underlying platform elements - e.g. for an instance of Postgres custom resource we may want to know: 
+Kubernetes custom resources extend base API to manage third-party platform elements declaratively.
+It is important to track chronology of declarative operations performed on custom resources to understand
+how these operations affect underlying platform elements - e.g. for an instance of Postgres custom resource we may want to know:
 how many db users were created in a month, when was password changed for a db user, etc.
-For this, a generic approach is needed to maintain provenance information of custom resources. 
+For this, a generic approach is needed to maintain provenance information of custom resources.
 
-kubeprovenance is a tool that helps you find Provenance information about different Kubernetes custom resources in your cluster. 
+kubeprovenance is a tool that helps you find Provenance information about different Kubernetes custom resources in your cluster.
 
-Kubeprovenance is a Kubernetes aggregated API server. It uses Kubernetes audit logs for building custom resource provenance. 
+Kubeprovenance is a Kubernetes aggregated API server. It uses Kubernetes audit logs for building custom resource provenance.
 Provenance query operators like history, diff, bisect are defined for custom resource instance tracking. Provenance information is accessible via kubectl.
 
 ## How does it work?
@@ -133,7 +133,7 @@ line 486: add audit-policy file to audit_args:
 
 Install dep:  <br/>
 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh <br/>
-cp $GOPATH/bin/dep /usr/bin/dep <br/>
+mv $GOPATH/bin/dep /usr/bin/dep <br/>
 
 git clone https://github.com/cloud-ark/kubeprovenance.git $GOPATH/src/github.com/cloud-ark<br/>
 cd $GOPATH/src/github.com/cloud-ark/kubeprovenance <br/>
