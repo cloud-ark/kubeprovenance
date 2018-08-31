@@ -140,19 +140,25 @@ func (o ObjectLineage) String() string {
 	}
 	return b.String()
 }
-
-func (o ObjectLineage) GetVersions() string {
+// Method to build a sorted slice of Spec from ObjectLineage map.
+// Sorting is necessary because want to scan the spec versions in order, maps
+// are unordered (ObjectLineage obj).
+func getSpecsInOrder(o ObjectLineage) []Spec{
+	// Get all versions, sort by version, make slice of specs
 	s := make([]int, 0)
 	for _, value := range o {
 		s = append(s, value.Version)
 	}
 	sort.Ints(s)
-	//get all versions, sort by version, make string array of them
 	specs := make([]Spec, 0)
 	for _, version := range s {
 		specs = append(specs, o[version])
 	}
-	//get all versions, sort by version, make string array of them
+	return specs
+}
+func (o ObjectLineage) GetVersions() string {
+	specs := getSpecsInOrder(o)
+	//get all versions, sort by version, make slice of specs
 	outputs := make([]string, 0)
 	for _, spec := range specs {
 		outputs = append(outputs, fmt.Sprintf("%s: Version %d", spec.Timestamp, spec.Version)) //cast int to string
@@ -164,16 +170,7 @@ func (o ObjectLineage) GetVersions() string {
 //need to delete the ObjectFullProvenance for the object
 //add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) SpecHistory() string {
-	s := make([]int, 0)
-	for _, value := range o {
-		s = append(s, value.Version)
-	}
-	sort.Ints(s)
-	//get all versions, sort by version, make slice of specs
-	specs := make([]Spec, 0)
-	for _, version := range s {
-		specs = append(specs, o[version]) //cast Spec to String
-	}
+	specs := getSpecsInOrder(o)
 
 	specStrings := make([]string, 0)
 	for _, spec := range specs {
@@ -183,24 +180,15 @@ func (o ObjectLineage) SpecHistory() string {
 }
 
 func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
-	//order keys so we append in order later, reference: https://blog.golang.org/go-maps-in-action#TOC_7.
-	s := make([]int, 0)
-	for _, value := range o {
-		s = append(s, value.Version)
-	}
-	sort.Ints(s)
-	//get all versions, sort by version, make string array of them
-	specs := make([]Spec, 0)
-	for _, version := range s {
-		specs = append(specs, o[version]) //cast Spec to String
-	}
+	specs := getSpecsInOrder(o)
+
 	specStrings := make([]string, 0)
 	for _, spec := range specs {
 		specStrings = append(specStrings, spec.String())
 	}
 	return strings.Join(specStrings, "\n")
 }
-func BuildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[string][][]string{
+func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[string][][]string{
 	mapRelationships := make(map[string][][]string, 0)
 	// a map from top level attribute to array of pairs (represented as 2 len array)
 	// mapRelationships with one top level object users, looks like This:
@@ -256,17 +244,8 @@ func BuildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[str
 // and need to be found in the same underlying map. Then I looped over the
 //field value pairs, searched based on the type.
 func (o ObjectLineage) Bisect(argMap map[string]string) string {
-	s := make([]int, 0)
-	for _, value := range o {
-		s = append(s, value.Version)
-	}
-	sort.Ints(s)
-	//get all versions, sort by version, and then build the spec array in order.
-	//if the query conditions are true more than once, want to find the earliest one.
-	specs := make([]Spec, 0)
-	for _, version := range s {
-		specs = append(specs, o[version])
-	}
+	specs := getSpecsInOrder(o)
+
 	allQueryPairs := make([][]string, 0)
 	//this section is storing the mappings from the query, into the allQueryPairs object
 	//these are the queries, each element must be satisfied somewhere in the spec for the bisect to succeed
@@ -295,7 +274,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	// attribute, will be treated as a joint query. So you can't just
 	// ask if username ever is daniel and password is ever 223843, because
 	// it could find that in different parts of the spec. They both must be satisfied in the same map object
-	mapRelationships := BuildAttributeRelationships(specs, allQueryPairs)
+	mapRelationships := buildAttributeRelationships(specs, allQueryPairs)
 	// fmt.Println(mapRelationships)
 	fmt.Println(specs)
 	for _, spec := range specs {
@@ -336,7 +315,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 					satisfied = handleCompositeFields(vSliceMap, mapRelationships, qkey, qval, mkey)
 					if satisfied{
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
-						 
+
 					}
 				}
 			}
