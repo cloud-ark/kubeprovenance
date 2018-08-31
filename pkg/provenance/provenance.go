@@ -181,7 +181,9 @@ func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
 	specs := getSpecsInOrder(o)
 	specStrings := make([]string, 0)
 	for _, spec := range specs {
-		specStrings = append(specStrings, spec.String())
+		if spec.Version >=vNumStart && spec.Version <= vNumEnd{
+			specStrings = append(specStrings, spec.String())
+		}
 	}
 	return strings.Join(specStrings, "\n")
 }
@@ -431,8 +433,6 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 				fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
 				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
 				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
-			} else {
-				// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
 			}
 			int1, ok1 := data1.(int)
 			int2, ok2 := data2.(int)
@@ -440,8 +440,6 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 				fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
 				fmt.Fprintf(&b, "\tVersion %d: %d\n", vNumStart, int1)
 				fmt.Fprintf(&b, "\tVersion %d: %d\n", vNumEnd, int2)
-			} else {
-				// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
 			}
 			strArray1, ok1 := data1.([]string)
 			strArray2, ok2 := data2.([]string)
@@ -515,8 +513,6 @@ func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) strin
 			fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
 			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
 			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
-		} else {
-			// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
 		}
 		int1, ok1 := data1.(int)
 		int2, ok2 := data2.(int)
@@ -524,8 +520,6 @@ func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) strin
 			fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
 			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
 			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
-		} else {
-			// fmt.Fprintf(&b, "No difference for attribute %s \n", attribute)
 		}
 		strArray1, ok1 := data1.([]string)
 		strArray2, ok2 := data2.([]string)
@@ -619,15 +613,15 @@ func parse() {
 		requestobj := event.RequestObject
 		timestamp := fmt.Sprint(event.RequestReceivedTimestamp.Format("2006-01-02 15:04:05"))
 		//now parse the spec into this provenanceObject that we found or created
-		ParseRequestObject(provObjPtr, requestobj.Raw, timestamp)
+		parseRequestObject(provObjPtr, requestobj.Raw, timestamp)
 	}
 	if err := scanner.Err(); err != nil {
 		panic(err)
 	}
-	fmt.Println("Done parsing.")
 }
-
-func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []byte, timestamp string) {
+//This method is to parse the bytes of the requestObject attribute of Event,
+//build the spec object, and save that spec to the ObjectLineage map under the next version number.
+func parseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []byte, timestamp string) {
 	fmt.Println("entering parse request")
 	var result map[string]interface{}
 	json.Unmarshal([]byte(requestObjBytes), &result)
@@ -659,9 +653,9 @@ func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 	json.Unmarshal(in, &raw)
 	spec, ok := raw["spec"].(map[string]interface{})
 	if ok {
-		fmt.Println("Successfully parsed")
+		fmt.Println("Parse was successful!")
 	} else {
-		fmt.Println("Unsuccessful parsed")
+		fmt.Println("Parse was unsuccessful!")
 	}
 	newVersion := len(objectProvenance.ObjectFullHistory) + 1
 	newSpec := buildSpec(spec)
