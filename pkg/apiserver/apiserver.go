@@ -246,7 +246,7 @@ func bisect(request *restful.Request, response *restful.Response) {
 	// var provenanceInfo string
 	// provenanceInfo = "Resource Name:" + resourceName + " Resource Kind:" + resourceKind
 	// fmt.Println(provenanceInfo)
-	
+
 	//Validate that there is ProvenanceHistory for the resource with name resourceName (PathParameter of the request)
 	intendedProvObj := provenance.FindProvenanceObjectByName(resourceName, provenance.AllProvenanceObjects)
 	if intendedProvObj == nil {

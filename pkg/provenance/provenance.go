@@ -241,7 +241,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 			allQueryPairs = append(allQueryPairs, attributeValueSlice)
 		}
 	}
-	// fmt.Printf("attributeValuePairs%s\n", allQueryPairs)
+	fmt.Printf("attributeValuePairs%s\n", allQueryPairs)
 
 	//This section is to build the attributeRelationships from the Query
 	//will use this to ensure that fields belonging to the same top-level
@@ -249,6 +249,9 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	//ask if username ever is daniel and password is ever 223843, because
 	//it could find that in different parts of the spec. They both must be satisfied in the same map object
 	mapRelationships := make(map[string][][]string, 0) // a map from top level attribute to array of pairs (represented as 2 len array)
+	// mapRelationships with one top level object users, looks like This:
+	//map[users:[[username pallavi] [password pass123]]]
+	//after I do
 	for _, spec := range specs {
 		for _, pair := range allQueryPairs {
 			for mkey, mvalue := range spec.AttributeToData {
@@ -262,7 +265,19 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 							if qkey == okey {
 								pairs, ok := mapRelationships[mkey]
 								if ok {
-									mapRelationships[mkey] = append(mapRelationships[mkey], pair)
+									pairExistsAlready := false
+									for _, v := range pairs{ //check existing pairs
+											//pair[0] is the field, pair[1] is the value.
+											if v[0] == pair[0]{
+													pairExistsAlready = true
+											}
+
+									}
+									//don't want duplicate fields, but want to catch all mapRelationships
+									//over the lineage.
+									if !pairExistsAlready{
+										mapRelationships[mkey] = append(mapRelationships[mkey], pair)
+									}
 								} else {
 									pairs = make([][]string, 0)
 									pairs = append(pairs, pair)
@@ -275,8 +290,11 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				}
 			}
 		}
+	}
+	// fmt.Println(mapRelationships)
 		//every element represents whether a query pair was satisfied. they all must be true.
 		//if they all are true, then that will be the version where the query is first satisfied.
+	for _, spec := range specs {
 		andGate := make([]bool, len(allQueryPairs))
 		index := 0
 		for _, pair := range allQueryPairs {
@@ -310,7 +328,6 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				//if the qkey/qval exists below the top level attribute. username exists
 				//in the map contained by the 'users' attribute in the spec object, for example.
 				if ok3 {
-					// fmt.Println("c")
 					for _, mymap := range vSliceMapSlice { //looping through each elem in the mapSlice
 						// check if there is any
 						// other necessary requirements for this mkey.
@@ -615,16 +632,12 @@ func ParseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 	}
 	l3, ok := l2["kubectl.kubernetes.io/last-applied-configuration"].(string)
 	if !ok {
-		// fmt.Println("b")
-		// fmt.Println(l3)
 		fmt.Println("Incorrect parsing of the auditEvent.requestObj.metadata")
 	}
 	in := []byte(l3)
 	var raw map[string]interface{}
 	json.Unmarshal(in, &raw)
 	spec, ok := raw["spec"].(map[string]interface{})
-	// fmt.Println("c")
-	// fmt.Println(spec)
 	if ok {
 		fmt.Println("Successfully parsed")
 	} else {
@@ -672,7 +685,7 @@ func buildSpec(spec map[string]interface{}) Spec {
 		case isInt:
 			mySpec.AttributeToData[attribute] = intField
 		default:
-			fmt.Println(value)
+			// fmt.Println(value)
 			fmt.Println("Error with the spec data. not a map slice, float, int, string slice, or string.")
 		}
 	}
