@@ -177,10 +177,10 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=databases"
 ```
 
-5) Get diff of the field username for a Postgres custom resource instance between version 1 and version 2
+5) Get diff of the field users for a Postgres custom resource instance between version 1 and version 2
 
 ```
-kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=username"
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=users"
 ```
 
 6) Find out in which version the user 'pallavi' was given password 'pass123'
@@ -239,10 +239,10 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 ![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getfielddiff.png)
 
 
-5) Get diff of the field username for a Postgres custom resource instance between version 1 and version 2
+5) Get diff of the field users for a Postgres custom resource instance between version 1 and version 2
 
 ```
-kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=username"
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=users"
 ```
 
 ![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/usersfielddiff.png)
