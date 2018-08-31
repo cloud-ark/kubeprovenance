@@ -615,17 +615,13 @@ func parseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 	l2, ok := l1["annotations"].(map[string]interface{})
 	if !ok {
 		//sp, _ := result["spec"].(map[string]interface{})
-		//TODO: for the case where a crd ObjectFullProvenance is first created, like initialize,
-		//the metadata spec is empty. instead the spec field has the data
-		//from the requestobjbytes:  metadata:map[creationTimestamp:<nil> name:client25 namespace:default]
-		//instead of "requestObject":{
-		//  "metadata":{
-		//     "annotations":{
-		//        "kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"postgrescontroller.kubeplus/v1\",\"kind\":\"Postgres\",\"metadata\":{\"annotations\":{},\"name\":\"client25\",\"namespace\":\"default\"},\"spec\":{\"databases\":[\"moodle\",\"wordpress\"],\"deploymentName\":\"client25\",\"image\":\"postgres:9.3\",\"replicas\":1,\"users\":[{\"password\":\"pass123\",\"username\":\"devdatta\"},{\"password\":\"pass123\",\"username\":\"pallavi\"}]}}\n"
-		//     }
-		//  },
-		//fmt.Println("a: not ok") //hits here
 		//fmt.Println(sp)
+
+		//TODO: for the case where a crd is first created, the
+		//the annotations spec is empty, which is how subsequent requests are parsed.
+		// instead all the data I want to parse is in the spec field.
+		//Right now it is actually skipping this case.
+
 		return
 	}
 	l3, ok := l2["kubectl.kubernetes.io/last-applied-configuration"].(string)
@@ -683,7 +679,6 @@ func buildSpec(spec map[string]interface{}) Spec {
 		case isInt:
 			mySpec.AttributeToData[attribute] = intField
 		default:
-			// fmt.Println(value)
 			fmt.Println("Error with the spec data. not a map slice, float, int, string slice, or string.")
 		}
 	}
