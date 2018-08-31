@@ -275,7 +275,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	// ask if username ever is daniel and password is ever 223843, because
 	// it could find that in different parts of the spec. They both must be satisfied in the same map object
 	mapRelationships := buildAttributeRelationships(specs, allQueryPairs)
-	// fmt.Println(mapRelationships)
+	fmt.Printf("Query Attributes Map:%v\n", mapRelationships)
 	// fmt.Println(specs)
 	for _, spec := range specs {
 
@@ -335,7 +335,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	}
 	return "No version found that matches the query."
 }
-//this is for a field like deployMent where the underyling state or data is a string
+//this is for a field like deploymentName where the underyling state or data is a string
 func handleTrivialFields(fieldData, qkey, qval, mkey string) bool{
 	if qkey == mkey && qval == fieldData {
 		return true
