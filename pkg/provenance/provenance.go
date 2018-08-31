@@ -165,9 +165,6 @@ func (o ObjectLineage) GetVersions() string {
 	return "[" + strings.Join(outputs, ", \n") + "]\n"
 }
 
-//what happens if I delete the object?
-//need to delete the ObjectFullProvenance for the object
-//add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) SpecHistory() string {
 	specs := getSpecsInOrder(o)
 	specStrings := make([]string, 0)
@@ -327,12 +324,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 			andGate = append(andGate, satisfied)
 		}
 		fmt.Printf("Result of checking all attributes:%v\n", andGate)
-		allTrue := true
-		for _, b := range andGate {
-			if !b {
-				allTrue = false
-			}
-		}
+		allTrue := all(andGate)
 		//all indexes in andGate must be true
 		if allTrue {
 			return fmt.Sprintf("Version: %d", spec.Version)
@@ -392,12 +384,7 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 				jointQueryResults = append(jointQueryResults, pairSatisfied)
 			}
 
-			allTrue := true
-			for _, b := range jointQueryResults {
-				if !b {
-					allTrue = false
-				}
-			}
+			allTrue := all(jointQueryResults)
 			// Note: I cannot just return allTrue because this breaks the outer loop ..
 			// The logic goes: if allTrue is never set to True, out of all the elements in outer loop mymap,
 			// then the loop will finish and return false. return allTrue with no if statement, would stop the
@@ -419,6 +406,47 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 		}
 	}
 	return false
+}
+func all(boolSlice []bool) bool{
+	allTrue := true
+	for _, b := range boolSlice{
+		if !b{
+			allTrue = false
+		}
+	}
+	return allTrue
+}
+func compareMaps(mapSlice1, mapSlice2 []map[string]string) bool {
+	foundMatches := make([]bool, 0)
+	for i := 0; i < len(mapSlice1); i++ {
+		mapleft := mapSlice1[i]
+		foundMatch := false
+		//each element in map1, must have a elem in map2 that matches it.
+		for j := 0; j < len(mapSlice2); j++ {
+			mapright := mapSlice2[j]
+			// Each attribute in left map must match an attribute in right map,
+			// so andGate represents each attribute's match.
+			andGate := make([]bool, 0)
+			for lkey, lval := range mapleft{
+				//if ok is true, that means that the keys matched.
+				rval,ok := mapright[lkey]
+				if ok && lval ==rval{
+					andGate = append(andGate, true)
+				}else{
+					andGate = append(andGate, false)
+				}
+			}
+
+			foundMatch = all(andGate)
+			// If foundMatch is true, then we found a match for mapleft, then break the map2 loop
+			// and move on to the next element in mapLeft.
+			if foundMatch{
+				break
+			}
+		}
+		foundMatches = append(foundMatches, foundMatch)
+	}
+	return all(foundMatches)
 }
 func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	var b strings.Builder
@@ -466,7 +494,7 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
 					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
 				}
-				if ToString(strMap1) != ToString(strMap2) {
+				if !compareMaps(strMap1,strMap2){
 					fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
 					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
 					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
@@ -486,17 +514,6 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, "No attribute found.")
 			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data1)
 		}
-	}
-	return b.String()
-}
-func ToString(mapsp []map[string]string) string {
-	var b strings.Builder
-	for _, m := range mapsp {
-		fmt.Fprintf(&b, "map{ ")
-		for attribute, data := range m {
-			fmt.Fprintf(&b, "%s: %s\n", attribute, data)
-		}
-		fmt.Fprintf(&b, " }\n")
 	}
 	return b.String()
 }
@@ -546,7 +563,7 @@ func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) strin
 				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
 				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
 			}
-			if ToString(strMap1) != ToString(strMap2) {
+			if !compareMaps(strMap1,strMap2){
 				fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
 				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
 				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
