@@ -290,14 +290,14 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	}
 	// fmt.Printf("attributeValuePairs%s\n", allQueryPairs)
 
-	//This section is to build the attributeRelationships from the Query
-	//will use this to ensure that fields belonging to the same top-level
-	//attribute, will be treated as a joint query. So you can't just
-	//ask if username ever is daniel and password is ever 223843, because
-	//it could find that in different parts of the spec. They both must be satisfied in the same map object
+	// This method is to build the attributeRelationships from the Query
+	// I Will use this to ensure that fields belonging to the same top-level
+	// attribute, will be treated as a joint query. So you can't just
+	// ask if username ever is daniel and password is ever 223843, because
+	// it could find that in different parts of the spec. They both must be satisfied in the same map object
 	mapRelationships := BuildAttributeRelationships(specs, allQueryPairs)
 	// fmt.Println(mapRelationships)
-
+	fmt.Println(specs)
 	for _, spec := range specs {
 
 		//every element represents whether a query pair was satisfied. they all must be true.
@@ -313,84 +313,37 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				//are string, array of strings, and a map. so I will need to check these
 				//with different search methods
 				vString, ok1 := mvalue.(string)
-				if ok1 { //if underlying value in the spec is a string
-					if qkey == mkey && qval == vString {
-						satisfied = true
-						break
+				if ok1 { //if underlying value is a string
+					satisfied = handleTrivialFields(vString, qkey, qval, mkey)
+					if satisfied{
+						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
 					}
 				}
 
 				vStringSlice, ok2 := mvalue.([]string)
 				if ok2 { //if it is a slice of strings
-					for _, str := range vStringSlice {
-						if qkey == mkey && qval == str {
-							satisfied = true
-							break
-						}
+					satisfied = handleSimpleFields(vStringSlice, qkey, qval, mkey)
+					if satisfied{
+						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
 					}
 				}
 
-				vSliceMapSlice, ok3 := mvalue.([]map[string]string)
+				vSliceMap, ok3 := mvalue.([]map[string]string)
 				//if it is a map, will need to check the underlying data to see
 				//if the qkey/qval exists below the top level attribute. username exists
 				//in the map contained by the 'users' attribute in the spec object, for example.
 				if ok3 {
-					for _, mymap := range vSliceMapSlice { //looping through each elem in the mapSlice
-						// check if there is any
-						// other necessary requirements for this mkey.
-						// if key exists, then multiple attributes have to be satisfied
-						// at once for the query to work.
-
-						//For example, say fields username and password belong to
-						//an attribute in the spec called 'users'. The username and password
-						//must be satisfied together in some element of vSliceMap since.
-						//It cannot be the case where username is found in index 1 of vSliceMapSlice and password cannot
-						//is found in index 2 of vSliceMapSlice.
-
-						// find all the related attributes associated with the top-level specs
-						// attribute mkey. this would be users for the postgres crd example.
-						attributeCombinedQuery, ok := mapRelationships[mkey]
-
-						if ok { //ensure multiple attributes are jointly satisfied
-							jointQueryResults := make([]bool, len(attributeCombinedQuery))
-							//jointQueryResults is a boolean slice that represents the satisfiability
-							//of the joint query. (all need to be true for it to have found qkey to be true)
-							i := 0
-							for _, pair := range attributeCombinedQuery {
-								qckey := pair[0] //for each field/value pair, must find each qckey in
-																 //the map object mymap
-								qcval := pair[1]
-								for okey, ovalue := range mymap {
-									if qckey == okey && qcval == ovalue {
-										jointQueryResults[i] = true
-									}
-								}
-								i += 1
-							}
-							allTrue := true
-							for _, b := range jointQueryResults {
-								if !b {
-									allTrue = false
-								}
-							}
-							satisfied = allTrue //qkey may be satisfied.
-						} else {
-							//if there is no attribute relationship, but the mapslice type assert was fine,
-							//only need to find an okey in one of the maps, where that query field/value (qkey,qvalue)
-							//is satisfied.
-							for okey, ovalue := range mymap {
-								if qkey == okey && qval == ovalue {
-									satisfied = true
-									break
-								}
-							}
-						}
+					satisfied = handleCompositeFields(vSliceMap, mapRelationships, qkey, qval, mkey)
+					if satisfied{
+						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
+						 
 					}
 				}
 			}
 			andGate[index] = satisfied
 			index += 1
 		}
+		fmt.Println(andGate)
 		allTrue := true
 		for _, b := range andGate {
 			if !b {
@@ -403,7 +356,79 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	}
 	return "No version found that matches the query."
 }
+//this is for a field like deployMent where the underyling state or data is a string
+func handleTrivialFields(fieldData, qkey, qval, mkey string) bool{
+	if qkey == mkey && qval == fieldData {
+		return true
+	}
+	return false
+}
+//this is for a field like databases where the underyling state or data is a slice of strings.
+func handleSimpleFields(vStringSlice []string, qkey, qval, mkey string) bool{
+	satisfied := false
+	for _, str := range vStringSlice {
+		if qkey == mkey && qval == str {
+			satisfied = true
+			break
+		}
+	}
+	return satisfied
+}
+func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[string][][]string, qkey, qval, mkey string) bool{
+	for _, mymap := range vSliceMap { //looping through each elem in the mapSlice
+		// check if there is any
+		// other necessary requirements for this mkey.
+		// if key exists, then multiple attributes have to be satisfied
+		// at once for the query to work.
 
+		//For example, say fields username and password belong to
+		//an attribute in the spec called 'users'. The username and password
+		//must be satisfied together in some element of vSliceMap since.
+		//It cannot be the case where username is found in index 1 of vSliceMapSlice and password cannot
+		//is found in index 2 of vSliceMapSlice.
+
+		// find all the related attributes associated with the top-level specs
+		// attribute mkey. this would be users for the postgres crd example.
+		attributeCombinedQuery, ok := mapRelationships[mkey]
+
+		if ok { //ensure multiple attributes are jointly satisfied
+			jointQueryResults := make([]bool, len(attributeCombinedQuery))
+			//jointQueryResults is a boolean slice that represents the satisfiability
+			//of the joint query. (all need to be true for it to have found qkey to be true)
+			i := 0
+			for _, pair := range attributeCombinedQuery {
+				qckey := pair[0] //for each field/value pair, must find each qckey in
+												 //the map object mymap
+				qcval := pair[1]
+				for okey, ovalue := range mymap {
+					if qckey == okey && qcval == ovalue {
+						jointQueryResults[i] = true
+					}
+				}
+				i += 1
+			}
+			allTrue := true
+			for _, b := range jointQueryResults {
+				if !b {
+					allTrue = false
+				}
+			}
+			if allTrue{
+				return true //satisfied the joint query
+			}
+		} else {
+			//if there is no attribute relationship, but the mapslice type assert was fine,
+			//only need to find an okey in one of the maps, where that query field/value (qkey,qvalue)
+			//is satisfied.
+			for okey, ovalue := range mymap {
+				if qkey == okey && qval == ovalue {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
 func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	var b strings.Builder
 	sp1 := o[vNumStart]
