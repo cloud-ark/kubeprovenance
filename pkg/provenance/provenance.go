@@ -281,8 +281,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 
 		//every element represents whether a query pair was satisfied. they all must be true.
 		//if they all are true, then that will be the version where the query is first satisfied.
-		andGate := make([]bool, len(allQueryPairs))
-		index := 0
+		andGate := make([]bool, 0)
 		for _, pair := range allQueryPairs {
 			qkey := pair[0]
 			qval := pair[1]
@@ -291,44 +290,44 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				//search through the attributes in the spec. Possible types
 				//are string, array of strings, and a map. so I will need to check these
 				//with different search methods
-				vString, ok1 := mvalue.(string)
-				if ok1 { //if underlying value is a string
+				vString, ok := mvalue.(string)
+				if ok { //if underlying value is a string
 					satisfied = handleTrivialFields(vString, qkey, qval, mkey)
 					if satisfied{
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
 					}
 				}
 
-				vStringSlice, ok2 := mvalue.([]string)
-				if ok2 { //if it is a slice of strings
+				vStringSlice, ok := mvalue.([]string)
+				if ok { //if it is a slice of strings
 					satisfied = handleSimpleFields(vStringSlice, qkey, qval, mkey)
 					if satisfied{
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
+						//
 					}
 				}
 
-				vSliceMap, ok3 := mvalue.([]map[string]string)
+				vSliceMap, ok := mvalue.([]map[string]string)
 				//if it is a map, will need to check the underlying data to see
 				//if the qkey/qval exists below the top level attribute. username exists
 				//in the map contained by the 'users' attribute in the spec object, for example.
-				if ok3 {
+				if ok {
 					satisfied = handleCompositeFields(vSliceMap, mapRelationships, qkey, qval, mkey)
 					if satisfied{
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
-
 					}
 				}
 			}
-			andGate[index] = satisfied
-			index += 1
+			andGate = append(andGate, satisfied)
 		}
-		fmt.Println(andGate)
+		fmt.Printf("Result of checking all attributes:%v\n", andGate)
 		allTrue := true
 		for _, b := range andGate {
 			if !b {
 				allTrue = false
 			}
-		} //all indexes in andGate must be true
+		}
+		//all indexes in andGate must be true
 		if allTrue {
 			return fmt.Sprintf("Version: %d", spec.Version)
 		}
@@ -336,7 +335,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	return "No version found that matches the query."
 }
 //this is for a field like deploymentName where the underyling state or data is a string
-func handleTrivialFields(fieldData, qkey, qval, mkey string) bool{
+func handleTrivialFields(qkey, qval, mkey, fieldData string) bool{
 	if qkey == mkey && qval == fieldData {
 		return true
 	}
@@ -371,35 +370,42 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 		attributeCombinedQuery, ok := mapRelationships[mkey]
 
 		if ok { //ensure multiple attributes are jointly satisfied
-			jointQueryResults := make([]bool, len(attributeCombinedQuery))
+			jointQueryResults := make([]bool, 0)
 			//jointQueryResults is a boolean slice that represents the satisfiability
 			//of the joint query. (all need to be true for it to have found qkey to be true)
-			i := 0
 			for _, pair := range attributeCombinedQuery {
 				qckey := pair[0] //for each field/value pair, must find each qckey in
 												 //the map object mymap
 				qcval := pair[1]
+				pairSatisfied := false
 				for okey, ovalue := range mymap {
 					if qckey == okey && qcval == ovalue {
-						jointQueryResults[i] = true
+						pairSatisfied = true
 					}
 				}
-				i += 1
+				jointQueryResults = append(jointQueryResults, pairSatisfied)
 			}
+
 			allTrue := true
 			for _, b := range jointQueryResults {
 				if !b {
 					allTrue = false
 				}
 			}
-			if allTrue{
-				return true //satisfied the joint query
+			// Note: I cannot just return allTrue because this breaks the outer loop ..
+			// The logic goes: if allTrue is never set to True, out of all the elements in outer loop mymap,
+			// then the loop will finish and return false. return allTrue with no if statement, would stop the
+			// loop and only check one mymap! Need to scan through all before returning false
+			if allTrue{//satisfied the joint query
+				return allTrue
 			}
 		} else {
 			//if there is no attribute relationship, but the mapslice type assert was fine,
 			//only need to find an okey in one of the maps, where that query field/value (qkey,qvalue)
 			//is satisfied.
 			for okey, ovalue := range mymap {
+				//If it never returns here, out of all the elements in mymap, Then
+				//the qkey/qval was never found in the attributes within any map in the slice.
 				if qkey == okey && qval == ovalue {
 					return true
 				}
