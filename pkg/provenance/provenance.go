@@ -276,7 +276,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	// it could find that in different parts of the spec. They both must be satisfied in the same map object
 	mapRelationships := buildAttributeRelationships(specs, allQueryPairs)
 	// fmt.Println(mapRelationships)
-	fmt.Println(specs)
+	// fmt.Println(specs)
 	for _, spec := range specs {
 
 		//every element represents whether a query pair was satisfied. they all must be true.
