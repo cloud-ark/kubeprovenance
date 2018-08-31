@@ -407,6 +407,7 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 	}
 	return false
 }
+//Method that returns true if all the elements in boolSlice are True
 func all(boolSlice []bool) bool{
 	allTrue := true
 	for _, b := range boolSlice{
@@ -416,7 +417,14 @@ func all(boolSlice []bool) bool{
 	}
 	return allTrue
 }
+//Method that compares the elements within 2 mapSlices.
+//Each map must have a corresponding map
 func compareMaps(mapSlice1, mapSlice2 []map[string]string) bool {
+	//little trick so that I loop through the bigger map slice,
+	if len(mapSlice2) != len(mapSlice1){
+		return false
+	}
+
 	foundMatches := make([]bool, 0)
 	for i := 0; i < len(mapSlice1); i++ {
 		mapleft := mapSlice1[i]
@@ -455,7 +463,7 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	for attribute, data1 := range sp1.AttributeToData {
 		data2, ok := sp2.AttributeToData[attribute] //check if the attribute even exists
 		if ok {
-			getDiff(b, attribute, data1, data2, vNumStart, vNumEnd)
+			getDiff(&b, attribute, data1, data2, vNumStart, vNumEnd)
 		} else { //for the case where a key exists in spec 1 that doesn't exist in spec 2
 			fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
 			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
@@ -472,20 +480,20 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	}
 	return b.String()
 }
-func getDiff(b strings.Builder, fieldName string, data1, data2 interface{}, vNumStart, vNumEnd int) string{
+func getDiff(b *strings.Builder, fieldName string, data1, data2 interface{}, vNumStart, vNumEnd int) string{
 		str1, ok1 := data1.(string)
 		str2, ok2 := data2.(string)
 		if ok1 && ok2 && str1 != str2 {
-			fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
-			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
-			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
+			fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, data1)
+			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, data2)
 		}
 		int1, ok1 := data1.(int)
 		int2, ok2 := data2.(int)
 		if ok1 && ok2 && int1 != int2 {
-			fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
-			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
-			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
+			fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, data1)
+			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, data2)
 		}
 		strArray1, ok1 := data1.([]string)
 		strArray2, ok2 := data2.([]string)
@@ -498,9 +506,9 @@ func getDiff(b strings.Builder, fieldName string, data1, data2 interface{}, vNum
 					}
 				}
 				if !found { // if an element does not have a match in the next version
-					fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
-					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strArray1)
-					fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strArray2)
+					fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+					fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strArray1)
+					fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strArray2)
 				}
 			}
 		}
@@ -508,14 +516,14 @@ func getDiff(b strings.Builder, fieldName string, data1, data2 interface{}, vNum
 		strMap2, ok2 := data2.([]map[string]string)
 		if ok1 && ok2 {
 			if len(strMap1) != len(strMap2) {
-				fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
-				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
-				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
+				fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strMap1)
+				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strMap2)
 			}
 			if !compareMaps(strMap1,strMap2){
-				fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
-				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, strMap1)
-				fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, strMap2)
+				fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strMap1)
+				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strMap2)
 			}
 		}
 
@@ -528,7 +536,7 @@ func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) strin
 	data2, ok2 := o[vNumEnd].AttributeToData[fieldName]
 	switch {
 	case ok1 && ok2:
-		return getDiff(b, fieldName,data1, data2, vNumStart, vNumEnd)
+		return getDiff(&b, fieldName, data1, data2, vNumStart, vNumEnd)
 	case !ok1 && ok2:
 		fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
 		fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, "No attribute found.")
