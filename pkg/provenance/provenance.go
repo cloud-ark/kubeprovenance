@@ -515,11 +515,6 @@ func getDiff(b *strings.Builder, fieldName string, data1, data2 interface{}, vNu
 		strMap1, ok1 := data1.([]map[string]string)
 		strMap2, ok2 := data2.([]map[string]string)
 		if ok1 && ok2 {
-			if len(strMap1) != len(strMap2) {
-				fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
-				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strMap1)
-				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strMap2)
-			}
 			if !compareMaps(strMap1,strMap2){
 				fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
 				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strMap1)
@@ -610,9 +605,9 @@ func parseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 	var result map[string]interface{}
 	json.Unmarshal([]byte(requestObjBytes), &result)
 
-	l1, ok := result["metadata"].(map[string]interface{})
+	map1, ok := result["metadata"].(map[string]interface{})
 
-	l2, ok := l1["annotations"].(map[string]interface{})
+	map2, ok := map1["annotations"].(map[string]interface{})
 	if !ok {
 		//sp, _ := result["spec"].(map[string]interface{})
 		//fmt.Println(sp)
@@ -624,11 +619,11 @@ func parseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []
 
 		return
 	}
-	l3, ok := l2["kubectl.kubernetes.io/last-applied-configuration"].(string)
+	map3, ok := map2["kubectl.kubernetes.io/last-applied-configuration"].(string)
 	if !ok {
 		fmt.Println("Incorrect parsing of the auditEvent.requestObj.metadata")
 	}
-	in := []byte(l3)
+	in := []byte(map3)
 	var raw map[string]interface{}
 	json.Unmarshal(in, &raw)
 	spec, ok := raw["spec"].(map[string]interface{})
