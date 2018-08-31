@@ -200,8 +200,8 @@ func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[str
 
 				qkey := pair[0] //query key
 				//each qkey qval has to be satisfied
-				vSliceMap, ok3 := mvalue.([]map[string]string)
-				if ok3 {
+				vSliceMap, ok := mvalue.([]map[string]string)
+				if ok {
 					for _, mymap := range vSliceMap {
 						for okey, _ := range mymap {
 							if qkey == okey {
