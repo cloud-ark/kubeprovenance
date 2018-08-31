@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
+	"errors"
 	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apiserver/pkg/apis/audit/v1beta1"
 )
@@ -158,7 +158,6 @@ func getSpecsInOrder(o ObjectLineage) []Spec{
 }
 func (o ObjectLineage) GetVersions() string {
 	specs := getSpecsInOrder(o)
-	//get all versions, sort by version, make slice of specs
 	outputs := make([]string, 0)
 	for _, spec := range specs {
 		outputs = append(outputs, fmt.Sprintf("%s: Version %d", spec.Timestamp, spec.Version)) //cast int to string
@@ -171,7 +170,6 @@ func (o ObjectLineage) GetVersions() string {
 //add type of ObjectFullProvenance, postgreses for example
 func (o ObjectLineage) SpecHistory() string {
 	specs := getSpecsInOrder(o)
-
 	specStrings := make([]string, 0)
 	for _, spec := range specs {
 		specStrings = append(specStrings, spec.String())
@@ -181,7 +179,6 @@ func (o ObjectLineage) SpecHistory() string {
 
 func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
 	specs := getSpecsInOrder(o)
-
 	specStrings := make([]string, 0)
 	for _, spec := range specs {
 		specStrings = append(specStrings, spec.String())
@@ -189,11 +186,11 @@ func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
 	return strings.Join(specStrings, "\n")
 }
 func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[string][][]string{
+	// A map from top level attribute to array of pairs (represented as 2 len array)
+	// mapRelationships with one top level object users, looks like this:
+	// ex:	map[users:[[username pallavi] [password pass123]]]
 	mapRelationships := make(map[string][][]string, 0)
-	// a map from top level attribute to array of pairs (represented as 2 len array)
-	// mapRelationships with one top level object users, looks like This:
-	//map[users:[[username pallavi] [password pass123]]]
-	//after I do
+
 	for _, spec := range specs {
 		for _, pair := range allQueryPairs {
 			for mkey, mvalue := range spec.AttributeToData {
@@ -235,6 +232,31 @@ func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[str
 	}
 	return mapRelationships
 }
+func buildQueryPairsSlice(queryArgMap map[string]string) ([][]string, error){
+	allQueryPairs := make([][]string, 0)
+	//this section is storing the mappings from the query, into the allQueryPairs object
+	//these are the queries, each element must be satisfied somewhere in the spec for the bisect to succeed
+	for key, value := range queryArgMap {
+		attributeValueSlice := make([]string, 2)
+		if strings.Contains(key, "field") {
+			//find associated value in argMap, the query params are such that field1=bar, field2=foo
+			fieldNum, err := strconv.Atoi(key[5:])
+			if err != nil {
+				return nil,errors.New(fmt.Sprintf("Failure, could not convert %s. Invalid Query parameters.", key))
+
+			}
+			//find associated value by looking in the map for value+fieldNum.
+			valueOfKey, ok := queryArgMap["value"+strconv.Itoa(fieldNum)]
+			if !ok {
+				return nil,errors.New(fmt.Sprintf("Could not find an associated value for field: %s", key))
+			}
+			attributeValueSlice[0] = value
+			attributeValueSlice[1] = valueOfKey
+			allQueryPairs = append(allQueryPairs, attributeValueSlice)
+		}
+	}
+	return allQueryPairs,nil
+}
 //Steps taken in Bisect are:
 //Sort the spec elements in order of their version number.
 
@@ -246,26 +268,9 @@ func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[str
 func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	specs := getSpecsInOrder(o)
 
-	allQueryPairs := make([][]string, 0)
-	//this section is storing the mappings from the query, into the allQueryPairs object
-	//these are the queries, each element must be satisfied somewhere in the spec for the bisect to succeed
-	for key, value := range argMap {
-		attributeValueSlice := make([]string, 2)
-		if strings.Contains(key, "field") {
-			//find associated value in argMap, the query params are such that field1=bar, field2=foo
-			fieldNum, err := strconv.Atoi(key[5:])
-			if err != nil {
-				return fmt.Sprintf("Failure, could not convert %s. Invalid Query parameters.", key)
-			}
-			//find associated value by looking in the map for value+fieldNum.
-			valueOfKey, ok := argMap["value"+strconv.Itoa(fieldNum)]
-			if !ok {
-				return fmt.Sprintf("Could not find an associated value for field: %s", key)
-			}
-			attributeValueSlice[0] = value
-			attributeValueSlice[1] = valueOfKey
-			allQueryPairs = append(allQueryPairs, attributeValueSlice)
-		}
+	allQueryPairs, err := buildQueryPairsSlice(argMap)
+	if err!=nil{
+		return err.Error()
 	}
 	// fmt.Printf("attributeValuePairs%s\n", allQueryPairs)
 
@@ -303,7 +308,6 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 					satisfied = handleSimpleFields(vStringSlice, qkey, qval, mkey)
 					if satisfied{
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
-						//
 					}
 				}
 
@@ -361,8 +365,8 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 
 		//For example, say fields username and password belong to
 		//an attribute in the spec called 'users'. The username and password
-		//must be satisfied together in some element of vSliceMap since.
-		//It cannot be the case where username is found in index 1 of vSliceMapSlice and password cannot
+		//must be satisfied together in some element of vSliceMap since,
+		//Since It cannot be the case where username is found in index 1 of vSliceMapSlice and password cannot
 		//is found in index 2 of vSliceMapSlice.
 
 		// find all the related attributes associated with the top-level specs
