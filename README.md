@@ -133,11 +133,12 @@ line 486: add audit-policy file to audit_args:
 
 Install dep:  <br/>
 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh <br/>
-mv $GOPATH/bin/dep /usr/bin/dep <br/>
+Move dep executable to somewhere on your $PATH
+dep version //to verify that it is installed correctly
 
 git clone https://github.com/cloud-ark/kubeprovenance.git $GOPATH/src/github.com/cloud-ark<br/>
 cd $GOPATH/src/github.com/cloud-ark/kubeprovenance <br/>
-dep ensure <br/>
+dep ensure -v <br/>
 
 Make sure kubernetes is running:
 $ kubectl.sh cluster-info

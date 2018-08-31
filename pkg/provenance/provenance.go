@@ -200,55 +200,9 @@ func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
 	}
 	return strings.Join(specStrings, "\n")
 }
-//Steps taken in Bisect are:
-//Sort the spec elements in order of their version number.
-
-//Outer loop is going through each of the versions in order.
-//First I parse the query into a slice of field/value pairs.
-//Then build the map of related fields that belong to the same top level attribute
-// and need to be found in the same underlying map. Then I looped over the
-//field value pairs, searched based on the type.
-func (o ObjectLineage) Bisect(argMap map[string]string) string {
-	s := make([]int, 0)
-	for _, value := range o {
-		s = append(s, value.Version)
-	}
-	sort.Ints(s)
-	//get all versions, sort by version, and then build the spec array in order.
-	//if the query conditions are true more than once, want to find the earliest one.
-	specs := make([]Spec, 0)
-	for _, version := range s {
-		specs = append(specs, o[version])
-	}
-	allQueryPairs := make([][]string, 0)
-	//this section is storing the mappings from the query, into the allQueryPairs object
-	//these are the queries, each element must be satisfied somewhere in the spec for the bisect to succeed
-	for key, value := range argMap {
-		attributeValueSlice := make([]string, 2)
-		if strings.Contains(key, "field") {
-			//find associated value in argMap, the query params are such that field1=bar, field2=foo
-			fieldNum, err := strconv.Atoi(key[5:])
-			if err != nil {
-				return fmt.Sprintf("Failure, could not convert %s. Invalid Query parameters.", key)
-			}
-			//find associated value by looking in the map for value+fieldNum.
-			valueOfKey, ok := argMap["value"+strconv.Itoa(fieldNum)]
-			if !ok {
-				return fmt.Sprintf("Could not find an associated value for field: %s", key)
-			}
-			attributeValueSlice[0] = value
-			attributeValueSlice[1] = valueOfKey
-			allQueryPairs = append(allQueryPairs, attributeValueSlice)
-		}
-	}
-	fmt.Printf("attributeValuePairs%s\n", allQueryPairs)
-
-	//This section is to build the attributeRelationships from the Query
-	//will use this to ensure that fields belonging to the same top-level
-	//attribute, will be treated as a joint query. So you can't just
-	//ask if username ever is daniel and password is ever 223843, because
-	//it could find that in different parts of the spec. They both must be satisfied in the same map object
-	mapRelationships := make(map[string][][]string, 0) // a map from top level attribute to array of pairs (represented as 2 len array)
+func BuildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[string][][]string{
+	mapRelationships := make(map[string][][]string, 0)
+	// a map from top level attribute to array of pairs (represented as 2 len array)
 	// mapRelationships with one top level object users, looks like This:
 	//map[users:[[username pallavi] [password pass123]]]
 	//after I do
@@ -291,10 +245,63 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 			}
 		}
 	}
+	return mapRelationships
+}
+//Steps taken in Bisect are:
+//Sort the spec elements in order of their version number.
+
+//Outer loop is going through each of the versions in order.
+//First I parse the query into a slice of field/value pairs.
+//Then build the map of related fields that belong to the same top level attribute
+// and need to be found in the same underlying map. Then I looped over the
+//field value pairs, searched based on the type.
+func (o ObjectLineage) Bisect(argMap map[string]string) string {
+	s := make([]int, 0)
+	for _, value := range o {
+		s = append(s, value.Version)
+	}
+	sort.Ints(s)
+	//get all versions, sort by version, and then build the spec array in order.
+	//if the query conditions are true more than once, want to find the earliest one.
+	specs := make([]Spec, 0)
+	for _, version := range s {
+		specs = append(specs, o[version])
+	}
+	allQueryPairs := make([][]string, 0)
+	//this section is storing the mappings from the query, into the allQueryPairs object
+	//these are the queries, each element must be satisfied somewhere in the spec for the bisect to succeed
+	for key, value := range argMap {
+		attributeValueSlice := make([]string, 2)
+		if strings.Contains(key, "field") {
+			//find associated value in argMap, the query params are such that field1=bar, field2=foo
+			fieldNum, err := strconv.Atoi(key[5:])
+			if err != nil {
+				return fmt.Sprintf("Failure, could not convert %s. Invalid Query parameters.", key)
+			}
+			//find associated value by looking in the map for value+fieldNum.
+			valueOfKey, ok := argMap["value"+strconv.Itoa(fieldNum)]
+			if !ok {
+				return fmt.Sprintf("Could not find an associated value for field: %s", key)
+			}
+			attributeValueSlice[0] = value
+			attributeValueSlice[1] = valueOfKey
+			allQueryPairs = append(allQueryPairs, attributeValueSlice)
+		}
+	}
+	// fmt.Printf("attributeValuePairs%s\n", allQueryPairs)
+
+	//This section is to build the attributeRelationships from the Query
+	//will use this to ensure that fields belonging to the same top-level
+	//attribute, will be treated as a joint query. So you can't just
+	//ask if username ever is daniel and password is ever 223843, because
+	//it could find that in different parts of the spec. They both must be satisfied in the same map object
+	mapRelationships := BuildAttributeRelationships(specs, allQueryPairs)
 	// fmt.Println(mapRelationships)
+
+	for _, spec := range specs {
+
 		//every element represents whether a query pair was satisfied. they all must be true.
 		//if they all are true, then that will be the version where the query is first satisfied.
-	for _, spec := range specs {
 		andGate := make([]bool, len(allQueryPairs))
 		index := 0
 		for _, pair := range allQueryPairs {
@@ -333,7 +340,6 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 						// other necessary requirements for this mkey.
 						// if key exists, then multiple attributes have to be satisfied
 						// at once for the query to work.
-
 
 						//For example, say fields username and password belong to
 						//an attribute in the spec called 'users'. The username and password
