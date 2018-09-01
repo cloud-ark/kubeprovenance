@@ -4,15 +4,16 @@ A Kubernetes Aggregated API Server to find out Provenance/Lineage information fo
 
 ## What is it?
 
-Kubernetes custom resources extend base API to manage third-party platform elements declaratively. 
-It is important to track chronology of declarative operations performed on custom resources to understand 
-how these operations affect underlying platform elements - e.g. for an instance of Postgres custom resource we may want to know: 
+
+Kubernetes custom resources extend base API to manage third-party platform elements declaratively.
+It is important to track chronology of declarative operations performed on custom resources to understand
+how these operations affect underlying platform elements - e.g. for an instance of Postgres custom resource we may want to know:
 how many db users were created in a month, when was password changed for a db user, etc.
-For this, a generic approach is needed to maintain provenance information of custom resources. 
+For this, a generic approach is needed to maintain provenance information of custom resources.
 
-kubeprovenance is a tool that helps you find Provenance information about different Kubernetes custom resources in your cluster. 
+kubeprovenance is a tool that helps you find Provenance information about different Kubernetes custom resources in your cluster.
 
-Kubeprovenance is a Kubernetes aggregated API server. It uses Kubernetes audit logs for building custom resource provenance. 
+Kubeprovenance is a Kubernetes aggregated API server. It uses Kubernetes audit logs for building custom resource provenance.
 Provenance query operators like history, diff, bisect are defined for custom resource instance tracking. Provenance information is accessible via kubectl.
 
 ## How does it work?
@@ -33,6 +34,7 @@ We are working on changing kubeprovenance's information source from static audit
 ## Try it Out:
 Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), configure auditing and running/testing Kubeprovenance aggregated api server
 
+
 **1. Setting up environment.**
 
 Reference: https://dzone.com/articles/easy-step-by-step-local-kubernetes-source-code-cha<br/>
@@ -44,15 +46,20 @@ apt-get install -y gcc make socat git<br/>
 wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz <br/>
 sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz <br/>
 export PATH=$PATH:/usr/local/go/bin <br/>
+export GOROOT=$PATH:/usr/local/go <br/>
+
+set up your go workspace, set the GOPATH to it. this is where all your go code should be. <br/>
+mkdir $HOME/goworkspace <br/>
+mkdir $HOME/goworkspace/src <br/>
+mkdir $HOME/goworkspace/bin <br/>
+
+export GOPATH=$HOME/goworkspace <br/>
 
 **3. Install etcd3.2.18:**
 curl -L https://github.com/coreos/etcd/releases/download/v3.2.18/etcd-v3.2.18-linux-amd64.tar.gz -o etcd-v3.2.18-linux-amd64.tar.gz && tar xzvf etcd-v3.2.18-linux-amd64.tar.gz && /bin/cp -f etcd-v3.2.18-linux-amd64/{etcd,etcdctl} /usr/bin && rm -rf etcd-v3.2.18-linux-amd64* <br/>
 **4. Install Docker**<br/>
-sudo apt-get update <br/>
-sudo apt-get install docker-ce <br/>
-
-Set up your go workspace, set the GOPATH to it. This is where all your go code should be. <br/>
-export GOPATH=/gopath <br/>
+Follow steps here: reference: https://docs.docker.com/install/linux/docker-ce/ubuntu/#set-up-the-repository <br/>
+docker version //check if it is installed <br/>
 
 **5. Get The Kubernetes Source Code:** <br/>
 git clone https://github.com/kubernetes/kubernetes $GOPATH/src/k8s.io/kubernetes <br/>
@@ -66,10 +73,10 @@ In a new shell, test that it is working : <br/>
 root@host: $GOPATH/src/k8s.io/kubernetes# cluster/kubectl.sh cluster-info <br/>
 Kubernetes master is running at http://127.0.0.1:8080 # => works! <br/>
 
-Add $GOPATH/src/k8s.io/kubernetes/cluster to PATH. <br/>
+Add $GOPATH/src/k8s.io/kubernetes/cluster to PATH: <br/>
 
 export PATH=$PATH:$GOPATH/src/k8s.io/kubernetes/cluster <br/>
-Commands look like kubectl.sh get pods instead of kubectl get pods...
+Now, Commands look like kubectl.sh get pods instead of kubectl get pods...
 
 **7. Enabling auditing:**
 
@@ -98,11 +105,10 @@ line 486: add audit-policy file to audit_args:
 
    This file defines what actions and resources will generate logs.
 
-   An example of a audit-policy file: reference the docs if you are looking to make one: <br/>
-      https://kubernetes.io/docs/tasks/debug-application-cluster/audit/
-
+   reference the docs if you are looking to make one: <br/>
+      https://kubernetes.io/docs/tasks/debug-application-cluster/audit/ <br/>
    For running kubeprovenance to track only a postgres custom resource, audit-policy would look like this:  <br/>
-   Add more rules to the audit-policy to track different or more than one custom resource:
+   Note: Add more rules to the audit-policy to track different or more than one custom resource:
 
       root@provenance:~# more audit-policy.yaml
       apiVersion: audit.k8s.io/v1beta1
@@ -127,11 +133,12 @@ line 486: add audit-policy file to audit_args:
 
 Install dep:  <br/>
 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh <br/>
+Move dep executable to somewhere on your $PATH
+dep version //to verify that it is installed correctly
 
-git clone https://github.com/cloud-ark/kubeprovenance.git <br/>
-mv kubeprovenance $GOPATH/src/github.com/cloud-ark <br/>
+git clone https://github.com/cloud-ark/kubeprovenance.git $GOPATH/src/github.com/cloud-ark<br/>
 cd $GOPATH/src/github.com/cloud-ark/kubeprovenance <br/>
-dep ensure <br/>
+dep ensure -v <br/>
 
 Make sure kubernetes is running:
 $ kubectl.sh cluster-info
@@ -158,10 +165,10 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/spechistory"
 ```
 
-3) Get diff of Postgres custom resource instance between version 1 and version 2
+3) Get diff of Postgres custom resource instance between version 1 and version 5
 
 ```
-kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2"
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=5"
 ```
 
 4) Get diff of the field databases for a Postgres custom resource instance between version 1 and version 2
@@ -170,12 +177,17 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=databases"
 ```
 
-5) Find out in which version the field 'abc' was given value 'def'
+5) Get diff of the field users for a Postgres custom resource instance between version 1 and version 3
 
 ```
-kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field=abc&value=def"
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=3&field=users"
 ```
 
+6) Find out in which version the user 'pallavi' was given password 'pass123'
+
+```
+kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&value1=pallavi&field2=password&value2=pass123"
+```
 
 ## Try it on Minikube
 
@@ -210,13 +222,13 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 ![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/spechistory.png)
 
 
-3) Get diff of Postgres custom resource instance between version 1 and version 2
+3) Get diff of Postgres custom resource instance between version 1 and version 5
 
 ```
-kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2"
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=5"
 ```
 
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/nodiff.png)
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getfulldiff.png)
 
 
 4) Get diff of the field databases for a Postgres custom resource instance between version 1 and version 2
@@ -224,7 +236,7 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 ```
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=2&field=databases"
 ```
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getdiff_databases.png)
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getfielddiff.png)
 
 
 5) Get diff of the field users for a Postgres custom resource instance between version 1 and version 3
@@ -233,13 +245,13 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/diff?start=1&end=3&field=users"
 ```
 
-![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/getdiff_users.png)
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/usersfielddiff.png)
 
 
-5) Find out in which version the field 'abc' was given value 'def'
+6) Find out in which version the user 'pallavi' was given password 'pass123'
 
 ```
-kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field=abc&value=def"
+kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&value1=pallavi&field2=password&value2=pass123"
 ```
 
 ## Troubleshooting tips:
