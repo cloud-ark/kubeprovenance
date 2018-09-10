@@ -3,6 +3,7 @@ package provenance
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"errors"
+	"time"
 	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apiserver/pkg/apis/audit/v1beta1"
 )
@@ -73,14 +74,30 @@ func init() {
 	AllProvenanceObjects = make([]ProvenanceOfObject, 0)
 
 }
-
+func onMinikube() bool {
+	ip := os.Getenv("HOST_IP")
+	ipBeginsWith := strings.Split(ip, ".")[0]
+	return ipBeginsWith == "10" || ipBeginsWith == "198"
+	//status.hostIP is set to 10.0.2.15 for onMinikube
+	//and 127.0.0.1 for the real kubernetes server
+	//rc.yaml
+	//- name: HOST_IP
+	//	valueFrom:
+	//		fieldRef:
+	//			fieldPath: status.hostIP
+}
 func CollectProvenance() {
-	// fmt.Println("Inside CollectProvenance")
-	// for {
+	fmt.Println("Inside CollectProvenance")
 	readKindCompositionFile()
-	parse()
-	// 	time.Sleep(time.Second * 5)
-	// }
+	if onMinikube() {
+		parse() //using a sample audit log, because
+		//currently audit logging is not supported for minikube
+	} else {
+		for { //keep looping because the audit-logging is live
+			parse()
+			time.Sleep(time.Second * 5)
+		}
+	}
 }
 
 func readKindCompositionFile() {
@@ -140,10 +157,11 @@ func (o ObjectLineage) String() string {
 	}
 	return b.String()
 }
+
 // Method to build a sorted slice of Spec from ObjectLineage map.
 // Sorting is necessary because want to scan the spec versions in order, maps
 // are unordered (ObjectLineage obj).
-func getSpecsInOrder(o ObjectLineage) []Spec{
+func getSpecsInOrder(o ObjectLineage) []Spec {
 	// Get all versions, sort by version, make slice of specs
 	s := make([]int, 0)
 	for _, value := range o {
@@ -204,16 +222,16 @@ func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[str
 								pairs, ok := mapRelationships[mkey]
 								if ok {
 									pairExistsAlready := false
-									for _, v := range pairs{ //check existing pairs
-											//pair[0] is the field, pair[1] is the value.
-											if v[0] == pair[0]{
-													pairExistsAlready = true
-											}
+									for _, v := range pairs { //check existing pairs
+										//pair[0] is the field, pair[1] is the value.
+										if v[0] == pair[0] {
+											pairExistsAlready = true
+										}
 
 									}
 									//don't want duplicate fields, but want to catch all mapRelationships
 									//over the lineage.
-									if !pairExistsAlready{
+									if !pairExistsAlready {
 										mapRelationships[mkey] = append(mapRelationships[mkey], pair)
 									}
 								} else {
@@ -268,6 +286,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	specs := getSpecsInOrder(o)
 
 	allQueryPairs, err := buildQueryPairsSlice(argMap)
+
 	if err!=nil{
 		return err.Error()
 	}
@@ -297,7 +316,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				vString, ok := mvalue.(string)
 				if ok { //if underlying value is a string
 					satisfied = handleTrivialFields(vString, qkey, qval, mkey)
-					if satisfied{
+					if satisfied {
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
 					}
 				}
@@ -305,7 +324,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				vStringSlice, ok := mvalue.([]string)
 				if ok { //if it is a slice of strings
 					satisfied = handleSimpleFields(vStringSlice, qkey, qval, mkey)
-					if satisfied{
+					if satisfied {
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
 					}
 				}
@@ -316,7 +335,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				//in the map contained by the 'users' attribute in the spec object, for example.
 				if ok {
 					satisfied = handleCompositeFields(vSliceMap, mapRelationships, qkey, qval, mkey)
-					if satisfied{
+					if satisfied {
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
 					}
 				}
@@ -332,15 +351,17 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	}
 	return "No version found that matches the query."
 }
+
 //this is for a field like deploymentName where the underyling state or data is a string
-func handleTrivialFields(qkey, qval, mkey, fieldData string) bool{
+func handleTrivialFields(qkey, qval, mkey, fieldData string) bool {
 	if qkey == mkey && qval == fieldData {
 		return true
 	}
 	return false
 }
+
 //this is for a field like databases where the underyling state or data is a slice of strings.
-func handleSimpleFields(vStringSlice []string, qkey, qval, mkey string) bool{
+func handleSimpleFields(vStringSlice []string, qkey, qval, mkey string) bool {
 	satisfied := false
 	for _, str := range vStringSlice {
 		if qkey == mkey && qval == str {
@@ -350,7 +371,7 @@ func handleSimpleFields(vStringSlice []string, qkey, qval, mkey string) bool{
 	}
 	return satisfied
 }
-func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[string][][]string, qkey, qval, mkey string) bool{
+func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[string][][]string, qkey, qval, mkey string) bool {
 	for _, mymap := range vSliceMap { //looping through each elem in the mapSlice
 		// check if there is any
 		// other necessary requirements for this mkey.
@@ -373,7 +394,7 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 			//of the joint query. (all need to be true for it to have found qkey to be true)
 			for _, pair := range attributeCombinedQuery {
 				qckey := pair[0] //for each field/value pair, must find each qckey in
-												 //the map object mymap
+				//the map object mymap
 				qcval := pair[1]
 				pairSatisfied := false
 				for okey, ovalue := range mymap {
@@ -389,7 +410,7 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 			// The logic goes: if allTrue is never set to True, out of all the elements in outer loop mymap,
 			// then the loop will finish and return false. return allTrue with no if statement, would stop the
 			// loop and only check one mymap! Need to scan through all before returning false
-			if allTrue{//satisfied the joint query
+			if allTrue { //satisfied the joint query
 				return allTrue
 			}
 		} else {
@@ -548,12 +569,19 @@ func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) strin
 
 //Ref:https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
 func parse() {
+	AllProvenanceObjects = make([]ProvenanceOfObject, 0)
 
-	if _, err := os.Stat("/tmp/kube-apiserver-audit.log"); os.IsNotExist(err) {
+	var auditPath string
+	if onMinikube() { //minikube
+		auditPath = "/tmp/minikube-sample-audit.log"
+	} else {
+		auditPath = "/tmp/kube-apiserver-audit.log"
+	}
+	if _, err := os.Stat(auditPath); os.IsNotExist(err) {
 		fmt.Println(fmt.Sprintf("could not stat the path %s", err))
 		panic(err)
 	}
-	log, err := os.Open("/tmp/kube-apiserver-audit.log")
+	log, err := os.Open(auditPath)
 	if err != nil {
 		fmt.Println(fmt.Sprintf("could not open the log file %s", err))
 		panic(err)
