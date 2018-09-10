@@ -23,12 +23,22 @@ spec:
         volumeMounts:
         - name: kind-compositions-volume
           mountPath: /etc/kubeprovenance
+        - mountPath: /tmp/kube-apiserver-audit.log
+          name: audit-log
         env:
         - name: KIND_COMPOSITION_FILE
           value: /etc/kubeprovenance/kind_compositions.yaml
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
       - name: etcd
         image: quay.io/coreos/etcd:v3.2.18
       volumes:
         - name: kind-compositions-volume
           configMap:
             name: kind-compositions-config-map
+        - name: audit-log
+          hostPath:
+            path: /tmp/kube-apiserver-audit.log
+            type: FileOrCreate

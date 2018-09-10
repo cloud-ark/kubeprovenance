@@ -40,7 +40,7 @@ Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), co
 Reference: https://dzone.com/articles/easy-step-by-step-local-kubernetes-source-code-cha<br/>
 ssh to your VM <br/>
 sudo su - <br/>
-apt-get install -y gcc make socat git<br/>
+apt-get install -y gcc make socat git wget<br/>
 
 **2. Install Golang 1.10.3:** <br/>
 wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz <br/>
@@ -76,6 +76,7 @@ Kubernetes master is running at http://127.0.0.1:8080 # => works! <br/>
 Add $GOPATH/src/k8s.io/kubernetes/cluster to PATH: <br/>
 
 export PATH=$PATH:$GOPATH/src/k8s.io/kubernetes/cluster <br/>
+
 Now, Commands look like kubectl.sh get pods instead of kubectl get pods...
 
 **7. Enabling auditing:**
@@ -136,11 +137,10 @@ curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh <br/>
 Move dep executable to somewhere on your $PATH
 dep version //to verify that it is installed correctly
 
-git clone https://github.com/cloud-ark/kubeprovenance.git $GOPATH/src/github.com/cloud-ark<br/>
-cd $GOPATH/src/github.com/cloud-ark/kubeprovenance <br/>
+go get github.com/cloud-ark/kubeprovenance <br/>
 dep ensure -v <br/>
 
-Make sure kubernetes is running:
+Make sure kubernetes is running:<br/>
 $ kubectl.sh cluster-info
 
 Now to deploy this aggregated api server use these commands:
