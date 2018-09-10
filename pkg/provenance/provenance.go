@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apiserver/pkg/apis/audit/v1beta1"
 )
