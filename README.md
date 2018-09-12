@@ -16,24 +16,8 @@ kubeprovenance is a tool that helps you find Provenance information about differ
 Kubeprovenance is a Kubernetes aggregated API server. It uses Kubernetes audit logs for building custom resource provenance.
 Provenance query operators like history, diff, bisect are defined for custom resource instance tracking. Provenance information is accessible via kubectl.
 
-## How does it work?
-
-kubeprovenance uses Kubernetes Auditing to build the provenance information.
-
-In building this API server we tried several approaches. You can read about our experience  
-[here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22).
-
-## Status
-
-Work in Progress.
-
-Note that currently kubeprovenance uses kube-apiserver-audit.log file included in artifacts/simple-image folder
-to build provenance information. So when you try out kubeprovenance you will get provenance information that is build from this file.
-We are working on changing kubeprovenance's information source from static audit log file to live audit logs that are continuously collected in the cluster.
 
 ## Try it Out:
-Steps to Run Kubernetes Local Cluster on a GCE or AWS instance (or any node), configure auditing and running/testing Kubeprovenance aggregated api server
-
 
 **1. Setting up environment.**
 
@@ -57,6 +41,8 @@ export GOPATH=$HOME/goworkspace <br/>
 
 **3. Install etcd3.2.18:**
 curl -L https://github.com/coreos/etcd/releases/download/v3.2.18/etcd-v3.2.18-linux-amd64.tar.gz -o etcd-v3.2.18-linux-amd64.tar.gz && tar xzvf etcd-v3.2.18-linux-amd64.tar.gz && /bin/cp -f etcd-v3.2.18-linux-amd64/{etcd,etcdctl} /usr/bin && rm -rf etcd-v3.2.18-linux-amd64* <br/>
+
+
 **4. Install Docker**<br/>
 Follow steps here: reference: https://docs.docker.com/install/linux/docker-ce/ubuntu/#set-up-the-repository <br/>
 docker version //check if it is installed <br/>
@@ -98,17 +84,13 @@ line 486: add audit-policy file to audit_args:
    audit_arg += " --audit-policy-file=/root/audit-policy.yaml" <br/>
 
    The value of --audit-policy-file is where you created your audit-policy.yaml file.  <br/>
-   There is an example-policy for a postgres custom resource saved in this repository. <br/>
-
-   Note: the audit log for your custom resource will be saved where this variable is set:
-      APISERVER_BASIC_AUDIT_LOG=/tmp/kube-apiserver-audit.log
-
+   There is an example-policy for a Postgres custom resource saved in this repository. <br/>
 
    This file defines what actions and resources will generate logs.
 
-   reference the docs if you are looking to make one: <br/>
+   Reference the docs if you are looking to make one: <br/>
       https://kubernetes.io/docs/tasks/debug-application-cluster/audit/ <br/>
-   For running kubeprovenance to track only a postgres custom resource, audit-policy would look like this:  <br/>
+   For running kubeprovenance to track only a Postgres custom resource, audit-policy would look like this:  <br/>
    Note: Add more rules to the audit-policy to track different or more than one custom resource:
 
       root@provenance:~# more audit-policy.yaml
@@ -127,20 +109,20 @@ line 486: add audit-policy file to audit_args:
               version: "v1"
               resources: ["postgreses"]
 
-   Note: our approach may change to a webhook backend instead of a log backend <br/>
-
+   Note: the audit log for your custom resource will be saved where this variable is set:
+      APISERVER_BASIC_AUDIT_LOG=/tmp/kube-apiserver-audit.log <br/>
 
 **8. Running kubeprovenance** <br/>
 
 Install dep:  <br/>
 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh <br/>
 Move dep executable to somewhere on your $PATH
-dep version //to verify that it is installed correctly
+dep version -- to verify that it is installed correctly
 
 go get github.com/cloud-ark/kubeprovenance <br/>
 dep ensure -v <br/>
 
-Make sure kubernetes is running:<br/>
+Make sure Kubernetes is running:<br/>
 $ kubectl.sh cluster-info
 
 Now to deploy this aggregated api server use these commands:
@@ -150,6 +132,11 @@ Now to deploy this aggregated api server use these commands:
    `$ ./deploy-provenance-artifacts.sh`
 3) Clean-up:  <br/>
    `$ ./delete-provenance-artifacts.sh`
+
+
+**9. Deploy Sample Postgres Operator** <br/>
+
+Follow the steps given [here](https://github.com/cloud-ark/kubeplus/tree/master/postgres-crd-v2)
 
 Once the kubeprovenance API server is running, you can find provenance information by using the following commands:
 
@@ -190,8 +177,6 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 ```
 
 ## Try it on Minikube
-
-Scripts are provided to help with building the API server container image and deployment/cleanup.
 
 0) Allow Minikube to use local Docker images:   <br/>
    `$ eval $(minikube docker-env)`
@@ -266,7 +251,8 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
    `$ kubectl logs -n provenance kube-provenance-apiserver-klzpc  -c kube-provenance-apiserver`
 
 
-### References:
+### Details:
 
-The Aggregated API Server has been developed by refering to [sample-apiserver](https://github.com/kubernetes/sample-apiserver)
-and [custom-metrics-apiserver](https://github.com/kubernetes-incubator/custom-metrics-apiserver).
+Our experience in building this API server is [here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22).
+
+
