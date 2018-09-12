@@ -39,6 +39,18 @@
   revision = "3ac7bf7a47d159a033b107610db8a1b6575507a4"
 
 [[projects]]
+  branch = "master"
+  digest = "1:8329a15465402b678ec383cc534642da90128f3aeddc138000aa181e36fad714"
+  name = "github.com/cloud-ark/kubeprovenance"
+  packages = [
+    "pkg/apiserver",
+    "pkg/cmd/server",
+    "pkg/provenance",
+  ]
+  pruneopts = "UT"
+  revision = "18aa9bd6fcae378858b0155a82812784186902e8"
+
+[[projects]]
   digest = "1:3814dc656fae3665c018c17165264b164ae7fb90255b48f12971b191fef27180"
   name = "github.com/coreos/etcd"
   packages = [
@@ -824,6 +836,9 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/cloud-ark/kubeprovenance/pkg/apiserver",
+    "github.com/cloud-ark/kubeprovenance/pkg/cmd/server",
+    "github.com/cloud-ark/kubeprovenance/pkg/provenance",
     "github.com/emicklei/go-restful",
     "github.com/golang/glog",
     "github.com/spf13/cobra",

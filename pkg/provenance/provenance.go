@@ -3,6 +3,7 @@ package provenance
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,7 +11,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"errors"
+	"time"
+
 	yaml "gopkg.in/yaml.v2"
 	"k8s.io/apiserver/pkg/apis/audit/v1beta1"
 )
@@ -74,13 +76,30 @@ func init() {
 
 }
 
+func onMinikube() bool {
+	ip := os.Getenv("HOST_IP")
+	ipBeginsWith := strings.Split(ip, ".")[0]
+	return ipBeginsWith == "10" || ipBeginsWith == "198"
+	//status.hostIP is set to 10.0.2.15 for onMinikube
+	//and 127.0.0.1 for the real kubernetes server
+	//rc.yaml
+	//- name: HOST_IP
+	//	valueFrom:
+	//		fieldRef:
+	//			fieldPath: status.hostIP
+}
 func CollectProvenance() {
-	// fmt.Println("Inside CollectProvenance")
-	// for {
+	fmt.Println("Inside CollectProvenance")
 	readKindCompositionFile()
-	parse()
-	// 	time.Sleep(time.Second * 5)
-	// }
+	if onMinikube() {
+		parse() //using a sample audit log, because
+		//currently audit logging is not supported for minikube
+	} else {
+		for { //keep looping because the audit-logging is live
+			parse()
+			time.Sleep(time.Second * 5)
+		}
+	}
 }
 
 func readKindCompositionFile() {
@@ -140,10 +159,11 @@ func (o ObjectLineage) String() string {
 	}
 	return b.String()
 }
+
 // Method to build a sorted slice of Spec from ObjectLineage map.
 // Sorting is necessary because want to scan the spec versions in order, maps
 // are unordered (ObjectLineage obj).
-func getSpecsInOrder(o ObjectLineage) []Spec{
+func getSpecsInOrder(o ObjectLineage) []Spec {
 	// Get all versions, sort by version, make slice of specs
 	s := make([]int, 0)
 	for _, value := range o {
@@ -178,13 +198,13 @@ func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
 	specs := getSpecsInOrder(o)
 	specStrings := make([]string, 0)
 	for _, spec := range specs {
-		if spec.Version >=vNumStart && spec.Version <= vNumEnd{
+		if spec.Version >= vNumStart && spec.Version <= vNumEnd {
 			specStrings = append(specStrings, spec.String())
 		}
 	}
 	return strings.Join(specStrings, "\n")
 }
-func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[string][][]string{
+func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[string][][]string {
 	// A map from top level attribute to array of pairs (represented as 2 len array)
 	// mapRelationships with one top level object users, looks like this:
 	// ex:	map[users:[[username pallavi] [password pass123]]]
@@ -204,16 +224,16 @@ func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[str
 								pairs, ok := mapRelationships[mkey]
 								if ok {
 									pairExistsAlready := false
-									for _, v := range pairs{ //check existing pairs
-											//pair[0] is the field, pair[1] is the value.
-											if v[0] == pair[0]{
-													pairExistsAlready = true
-											}
+									for _, v := range pairs { //check existing pairs
+										//pair[0] is the field, pair[1] is the value.
+										if v[0] == pair[0] {
+											pairExistsAlready = true
+										}
 
 									}
 									//don't want duplicate fields, but want to catch all mapRelationships
 									//over the lineage.
-									if !pairExistsAlready{
+									if !pairExistsAlready {
 										mapRelationships[mkey] = append(mapRelationships[mkey], pair)
 									}
 								} else {
@@ -231,7 +251,7 @@ func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[str
 	}
 	return mapRelationships
 }
-func buildQueryPairsSlice(queryArgMap map[string]string) ([][]string, error){
+func buildQueryPairsSlice(queryArgMap map[string]string) ([][]string, error) {
 	allQueryPairs := make([][]string, 0)
 	//this section is storing the mappings from the query, into the allQueryPairs object
 	//these are the queries, each element must be satisfied somewhere in the spec for the bisect to succeed
@@ -241,21 +261,22 @@ func buildQueryPairsSlice(queryArgMap map[string]string) ([][]string, error){
 			//find associated value in argMap, the query params are such that field1=bar, field2=foo
 			fieldNum, err := strconv.Atoi(key[5:])
 			if err != nil {
-				return nil,errors.New(fmt.Sprintf("Failure, could not convert %s. Invalid Query parameters.", key))
+				return nil, errors.New(fmt.Sprintf("Failure, could not convert %s. Invalid Query parameters.", key))
 
 			}
 			//find associated value by looking in the map for value+fieldNum.
 			valueOfKey, ok := queryArgMap["value"+strconv.Itoa(fieldNum)]
 			if !ok {
-				return nil,errors.New(fmt.Sprintf("Could not find an associated value for field: %s", key))
+				return nil, errors.New(fmt.Sprintf("Could not find an associated value for field: %s", key))
 			}
 			attributeValueSlice[0] = value
 			attributeValueSlice[1] = valueOfKey
 			allQueryPairs = append(allQueryPairs, attributeValueSlice)
 		}
 	}
-	return allQueryPairs,nil
+	return allQueryPairs, nil
 }
+
 //Steps taken in Bisect are:
 //Sort the spec elements in order of their version number.
 
@@ -268,7 +289,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	specs := getSpecsInOrder(o)
 
 	allQueryPairs, err := buildQueryPairsSlice(argMap)
-	if err!=nil{
+	if err != nil {
 		return err.Error()
 	}
 	// fmt.Printf("attributeValuePairs%s\n", allQueryPairs)
@@ -297,7 +318,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				vString, ok := mvalue.(string)
 				if ok { //if underlying value is a string
 					satisfied = handleTrivialFields(vString, qkey, qval, mkey)
-					if satisfied{
+					if satisfied {
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
 					}
 				}
@@ -305,7 +326,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				vStringSlice, ok := mvalue.([]string)
 				if ok { //if it is a slice of strings
 					satisfied = handleSimpleFields(vStringSlice, qkey, qval, mkey)
-					if satisfied{
+					if satisfied {
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
 					}
 				}
@@ -316,7 +337,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 				//in the map contained by the 'users' attribute in the spec object, for example.
 				if ok {
 					satisfied = handleCompositeFields(vSliceMap, mapRelationships, qkey, qval, mkey)
-					if satisfied{
+					if satisfied {
 						break //qkey/qval was satisfied somewhere in the spec attributes, so move on to the next qkey/qval
 					}
 				}
@@ -332,15 +353,17 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	}
 	return "No version found that matches the query."
 }
+
 //this is for a field like deploymentName where the underyling state or data is a string
-func handleTrivialFields(qkey, qval, mkey, fieldData string) bool{
+func handleTrivialFields(qkey, qval, mkey, fieldData string) bool {
 	if qkey == mkey && qval == fieldData {
 		return true
 	}
 	return false
 }
+
 //this is for a field like databases where the underyling state or data is a slice of strings.
-func handleSimpleFields(vStringSlice []string, qkey, qval, mkey string) bool{
+func handleSimpleFields(vStringSlice []string, qkey, qval, mkey string) bool {
 	satisfied := false
 	for _, str := range vStringSlice {
 		if qkey == mkey && qval == str {
@@ -350,7 +373,7 @@ func handleSimpleFields(vStringSlice []string, qkey, qval, mkey string) bool{
 	}
 	return satisfied
 }
-func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[string][][]string, qkey, qval, mkey string) bool{
+func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[string][][]string, qkey, qval, mkey string) bool {
 	for _, mymap := range vSliceMap { //looping through each elem in the mapSlice
 		// check if there is any
 		// other necessary requirements for this mkey.
@@ -373,7 +396,7 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 			//of the joint query. (all need to be true for it to have found qkey to be true)
 			for _, pair := range attributeCombinedQuery {
 				qckey := pair[0] //for each field/value pair, must find each qckey in
-												 //the map object mymap
+				//the map object mymap
 				qcval := pair[1]
 				pairSatisfied := false
 				for okey, ovalue := range mymap {
@@ -389,7 +412,7 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 			// The logic goes: if allTrue is never set to True, out of all the elements in outer loop mymap,
 			// then the loop will finish and return false. return allTrue with no if statement, would stop the
 			// loop and only check one mymap! Need to scan through all before returning false
-			if allTrue{//satisfied the joint query
+			if allTrue { //satisfied the joint query
 				return allTrue
 			}
 		} else {
@@ -407,21 +430,23 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 	}
 	return false
 }
+
 //Method that returns true if all the elements in boolSlice are True
-func all(boolSlice []bool) bool{
+func all(boolSlice []bool) bool {
 	allTrue := true
-	for _, b := range boolSlice{
-		if !b{
+	for _, b := range boolSlice {
+		if !b {
 			allTrue = false
 		}
 	}
 	return allTrue
 }
+
 //Method that compares the elements within 2 mapSlices.
 //Each map must have a corresponding map
 func compareMaps(mapSlice1, mapSlice2 []map[string]string) bool {
 	//little trick so that I loop through the bigger map slice,
-	if len(mapSlice2) != len(mapSlice1){
+	if len(mapSlice2) != len(mapSlice1) {
 		return false
 	}
 
@@ -435,12 +460,12 @@ func compareMaps(mapSlice1, mapSlice2 []map[string]string) bool {
 			// Each attribute in left map must match an attribute in right map,
 			// so andGate represents each attribute's match.
 			andGate := make([]bool, 0)
-			for lkey, lval := range mapleft{
+			for lkey, lval := range mapleft {
 				//if ok is true, that means that the keys matched.
-				rval,ok := mapright[lkey]
-				if ok && lval ==rval{
+				rval, ok := mapright[lkey]
+				if ok && lval == rval {
 					andGate = append(andGate, true)
-				}else{
+				} else {
 					andGate = append(andGate, false)
 				}
 			}
@@ -448,7 +473,7 @@ func compareMaps(mapSlice1, mapSlice2 []map[string]string) bool {
 			foundMatch = all(andGate)
 			// If foundMatch is true, then we found a match for mapleft, then break the map2 loop
 			// and move on to the next element in mapLeft.
-			if foundMatch{
+			if foundMatch {
 				break
 			}
 		}
@@ -480,48 +505,47 @@ func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	}
 	return b.String()
 }
-func getDiff(b *strings.Builder, fieldName string, data1, data2 interface{}, vNumStart, vNumEnd int) string{
-		str1, ok1 := data1.(string)
-		str2, ok2 := data2.(string)
-		if ok1 && ok2 && str1 != str2 {
-			fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
-			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, data1)
-			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, data2)
-		}
-		int1, ok1 := data1.(int)
-		int2, ok2 := data2.(int)
-		if ok1 && ok2 && int1 != int2 {
-			fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
-			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, data1)
-			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, data2)
-		}
-		strArray1, ok1 := data1.([]string)
-		strArray2, ok2 := data2.([]string)
-		if ok1 && ok2 {
-			for _, str := range strArray1 {
-				found := false
-				for _, val := range strArray2 {
-					if str == val {
-						found = true
-					}
-				}
-				if !found { // if an element does not have a match in the next version
-					fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
-					fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strArray1)
-					fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strArray2)
+func getDiff(b *strings.Builder, fieldName string, data1, data2 interface{}, vNumStart, vNumEnd int) string {
+	str1, ok1 := data1.(string)
+	str2, ok2 := data2.(string)
+	if ok1 && ok2 && str1 != str2 {
+		fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+		fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, data1)
+		fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, data2)
+	}
+	int1, ok1 := data1.(int)
+	int2, ok2 := data2.(int)
+	if ok1 && ok2 && int1 != int2 {
+		fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+		fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, data1)
+		fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, data2)
+	}
+	strArray1, ok1 := data1.([]string)
+	strArray2, ok2 := data2.([]string)
+	if ok1 && ok2 {
+		for _, str := range strArray1 {
+			found := false
+			for _, val := range strArray2 {
+				if str == val {
+					found = true
 				}
 			}
-		}
-		strMap1, ok1 := data1.([]map[string]string)
-		strMap2, ok2 := data2.([]map[string]string)
-		if ok1 && ok2 {
-			if !compareMaps(strMap1,strMap2){
+			if !found { // if an element does not have a match in the next version
 				fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
-				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strMap1)
-				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strMap2)
+				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strArray1)
+				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strArray2)
 			}
 		}
-
+	}
+	strMap1, ok1 := data1.([]map[string]string)
+	strMap2, ok2 := data2.([]map[string]string)
+	if ok1 && ok2 {
+		if !compareMaps(strMap1, strMap2) {
+			fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strMap1)
+			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strMap2)
+		}
+	}
 
 	return b.String()
 }
@@ -598,6 +622,7 @@ func parse() {
 		panic(err)
 	}
 }
+
 //This method is to parse the bytes of the requestObject attribute of Event,
 //build the spec object, and save that spec to the ObjectLineage map under the next version number.
 func parseRequestObject(objectProvenance *ProvenanceOfObject, requestObjBytes []byte, timestamp string) {
