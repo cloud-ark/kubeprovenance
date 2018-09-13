@@ -19,7 +19,7 @@ Provenance query operators like history, diff, bisect are defined for custom res
 
 ## Try it Out:
 
-**1. Setting up environment.**
+**1. Setting Up The Environment.**
 
 Reference: https://dzone.com/articles/easy-step-by-step-local-kubernetes-source-code-cha<br/>
 ssh to your VM <br/>
@@ -32,7 +32,7 @@ sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz <br/>
 export PATH=$PATH:/usr/local/go/bin <br/>
 export GOROOT=$PATH:/usr/local/go <br/>
 
-set up your go workspace, set the GOPATH to it. this is where all your go code should be. <br/>
+Set up your Go workspace, set the GOPATH to it. This is where all your Go code should be. <br/>
 mkdir $HOME/goworkspace <br/>
 mkdir $HOME/goworkspace/src <br/>
 mkdir $HOME/goworkspace/bin <br/>
@@ -51,7 +51,7 @@ docker version //check if it is installed <br/>
 git clone https://github.com/kubernetes/kubernetes $GOPATH/src/k8s.io/kubernetes <br/>
 cd $GOPATH/src/k8s.io/kubernetes <br/>
 
-**6. Compile and run kubernetes** <br/>
+**6. Compile and Run Kubernetes** <br/>
 export KUBERNETES_PROVIDER=local <br/>
 root@host: $GOPATH/src/k8s.io/kubernetes# hack/local-up-cluster.sh <br/>
 
@@ -63,9 +63,9 @@ Add $GOPATH/src/k8s.io/kubernetes/cluster to PATH: <br/>
 
 export PATH=$PATH:$GOPATH/src/k8s.io/kubernetes/cluster <br/>
 
-Now, Commands look like kubectl.sh get pods instead of kubectl get pods...
+Now, commands look like kubectl.sh get pods instead of kubectl get pods...
 
-**7. Enabling auditing:**
+**7. Enabling Auditing:** <br/>
 
 We have to enable auditing. reference: https://kubernetes.io/docs/tasks/debug-application-cluster/audit/ <br/>
 Setting up Log backend (To be added)... <br/>
@@ -78,7 +78,7 @@ vi hack/local-up-cluster.sh <br/>
 line 87: Change ENABLE_APISERVER_BASIC_AUDIT to true
    ENABLE_APISERVER_BASIC_AUDIT=${ENABLE_APISERVER_BASIC_AUDIT:-true}
 
-line 486: add audit-policy file to audit_args:   
+line 486: add audit-policy file to audit_args:   <br/>
    Now you need to add an audit-arg for the audit-policy. add the following line after audit_arg+=" --audit-log-maxbackup=0"
 
    audit_arg += " --audit-policy-file=/root/audit-policy.yaml" <br/>
@@ -109,17 +109,18 @@ line 486: add audit-policy file to audit_args:
               version: "v1"
               resources: ["postgreses"]
 
-   Note: the audit log for your custom resource will be saved where this variable is set:
+   Note: The audit log for your custom resource will be saved where this variable is set:
       APISERVER_BASIC_AUDIT_LOG=/tmp/kube-apiserver-audit.log <br/>
 
 **8. Running kubeprovenance** <br/>
 
 Install dep:  <br/>
 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh <br/>
-Move dep executable to somewhere on your $PATH
-dep version -- to verify that it is installed correctly
+Move dep executable to somewhere on your $PATH <br/>
+dep version -- to verify that it is installed correctly <br/>
 
 go get github.com/cloud-ark/kubeprovenance <br/>
+cd $GOPATH/src/github.com/cloud-ark/kubeprovenance <br/>
 dep ensure -v <br/>
 
 Make sure Kubernetes is running:<br/>
@@ -177,6 +178,49 @@ kubectl.sh get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/pos
 ```
 
 ## Try it on Minikube
+
+Note: Since audit-logging is not supported on minikube yet (https://github.com/kubernetes/minikube/issues/2934), I included a static, pre-generated audit-log to use to see how it works.
+
+**1. Setting up environment.** <br/>
+sudo su - <br/>
+apt-get install -y gcc make socat git wget<br/>
+**2. Install Minikube** <br/>
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.28.2/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/ <br/>
+minikube start <br/>
+minikube ip -- verify that minikube is up and running <br/>
+**3. Install Golang 1.10.3:** <br/>
+wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz <br/>
+sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz <br/>
+export PATH=$PATH:/usr/local/go/bin <br/>
+export GOROOT=$PATH:/usr/local/go <br/>
+
+Set up your Go workspace, set the GOPATH to it. This is where all your Go code should be. <br/>
+mkdir $HOME/goworkspace <br/>
+mkdir $HOME/goworkspace/src <br/>
+mkdir $HOME/goworkspace/bin <br/>
+
+export GOPATH=$HOME/goworkspace <br/>
+
+**4. Install etcd3.2.18:**
+curl -L https://github.com/coreos/etcd/releases/download/v3.2.18/etcd-v3.2.18-linux-amd64.tar.gz -o etcd-v3.2.18-linux-amd64.tar.gz && tar xzvf etcd-v3.2.18-linux-amd64.tar.gz && /bin/cp -f etcd-v3.2.18-linux-amd64/{etcd,etcdctl} /usr/bin && rm -rf etcd-v3.2.18-linux-amd64* <br/>
+
+
+**5. Install Docker**<br/>
+Follow steps here: reference: https://docs.docker.com/install/linux/docker-ce/ubuntu/#set-up-the-repository <br/>
+docker version //check if it is installed <br/>
+
+
+**6. Install dep:**<br/>
+curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh <br/>
+Move dep executable to somewhere on your $PATH <br/>
+dep version -- to verify that it is installed correctly <br/>
+
+
+**7. Running kubeprovenance**<br/>
+
+go get github.com/cloud-ark/kubeprovenance <br/>
+cd $GOPATH/src/github.com/cloud-ark/kubeprovenance <br/>
+dep ensure -v <br/>
 
 0) Allow Minikube to use local Docker images:   <br/>
    `$ eval $(minikube docker-env)`
@@ -238,6 +282,7 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 ```
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&value1=pallavi&field2=password&value2=pass123"
 ```
+![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/bisect.png)
 
 ## Troubleshooting tips:
 
@@ -254,5 +299,3 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 ### Details:
 
 Our experience in building this API server is [here](https://medium.com/@cloudark/our-journey-in-building-a-kubernetes-aggregated-api-server-29a4f9c1de22).
-
-
