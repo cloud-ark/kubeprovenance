@@ -78,8 +78,9 @@ func init() {
 
 func onMinikube() bool {
 	ip := os.Getenv("HOST_IP")
+	fmt.Printf("Minikube IP:%s\n", ip)
 	ipBeginsWith := strings.Split(ip, ".")[0]
-	return ipBeginsWith == "10" || ipBeginsWith == "198"
+	return ipBeginsWith == "10" || ipBeginsWith == "192"
 	//status.hostIP is set to 10.0.2.15 for onMinikube
 	//and 127.0.0.1 for the real kubernetes server
 	//rc.yaml
@@ -91,12 +92,14 @@ func onMinikube() bool {
 func CollectProvenance() {
 	fmt.Println("Inside CollectProvenance")
 	readKindCompositionFile()
+	useSample := false
 	if onMinikube() {
-		parse() //using a sample audit log, because
+	        useSample = true
+		parse(useSample) //using a sample audit log, because
 		//currently audit logging is not supported for minikube
 	} else {
 		for { //keep looping because the audit-logging is live
-			parse()
+			parse(useSample)
 			time.Sleep(time.Second * 5)
 		}
 	}
@@ -571,17 +574,28 @@ func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) strin
 }
 
 //Ref:https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
-func parse() {
+func parse(useSample bool) {
 
-	if _, err := os.Stat("/tmp/kube-apiserver-audit.log"); os.IsNotExist(err) {
-		fmt.Println(fmt.Sprintf("could not stat the path %s", err))
-		panic(err)
-	}
-	log, err := os.Open("/tmp/kube-apiserver-audit.log")
-	if err != nil {
+        var log *os.File
+	var err error
+        if useSample {
+	  log, err = os.Open("/tmp/minikube-sample-audit.log")
+	  if err != nil {
 		fmt.Println(fmt.Sprintf("could not open the log file %s", err))
 		panic(err)
+	  }
+	} else {
+	  if _, err := os.Stat("/tmp/kube-apiserver-audit.log"); os.IsNotExist(err) {
+	     fmt.Println(fmt.Sprintf("could not stat the path %s", err))
+	     panic(err)
+	  }
+	  log, err = os.Open("/tmp/kube-apiserver-audit.log")
+	  if err != nil {
+		fmt.Println(fmt.Sprintf("could not open the log file %s", err))
+		panic(err)
+	  }
 	}
+
 	defer log.Close()
 
 	scanner := bufio.NewScanner(log)
