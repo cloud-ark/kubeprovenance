@@ -1,0 +1,84 @@
+HistoryTest1: |
+  Version: 1
+    databases: [servers staff]
+    deploymentName: MyDeployment
+    image: postgres:9.3
+    replicas: 3
+    users: [ map[password: 4557832+#^ username: daniel]  map[password: 5*7832!@$ username: kulkarni] ]
+  Version: 2
+    databases: [servers staff]
+    deploymentName: MyDeployment
+    image: postgres:9.3
+    replicas: 3
+    users: [ map[password: 4557832+#^ username: daniel]  map[password: 5*7832!@$ username: kulkarni]  map[password: fluffy23 username: johnson] ]
+  Version: 3
+    databases: [servers staff]
+    deploymentName: MyDeployment
+    image: postgres:9.3
+    replicas: 3
+    users: [ map[password: 4557832+#^ username: daniel]  map[password: 5*7832!@$ username: kulkarni]  map[password: fluffy23 username: johnson]  map[password: bedsheet85 username: thomas] ]
+  Version: 4
+    databases: [servers staff logging]
+    deploymentName: MyDeployment
+    image: postgres:9.3
+    replicas: 3
+    users: [ map[password: 4557832+#^ username: daniel]  map[password: 5*7832!@$ username: kulkarni]  map[password: fluffy23 username: johnson]  map[password: bedsheet85 username: thomas] ]
+  Version: 5
+    databases: [servers staff logging demographics]
+    deploymentName: MyDeployment
+    image: postgres:9.3
+    replicas: 3
+    users: [ map[password: 4557832+#^ username: daniel]  map[password: 5*7832!@$ username: kulkarni]  map[password: fluffy23 username: johnson]  map[password: bedsheet85 username: thomas] ]
+HistoryIntervalTest1: |
+  Version: 2
+    databases: [servers staff]
+    deploymentName: MyDeployment
+    image: postgres:9.3
+    replicas: 3
+    users: [ map[password: 4557832+#^ username: daniel]  map[password: 5*7832!@$ username: kulkarni]  map[password: fluffy23 username: johnson] ]
+  Version: 3
+    databases: [servers staff]
+    deploymentName: MyDeployment
+    image: postgres:9.3
+    replicas: 3
+    users: [ map[password: 4557832+#^ username: daniel]  map[password: 5*7832!@$ username: kulkarni]  map[password: fluffy23 username: johnson]  map[password: bedsheet85 username: thomas] ]
+  Version: 4
+    databases: [servers staff logging]
+    deploymentName: MyDeployment
+    image: postgres:9.3
+    replicas: 3
+    users: [ map[password: 4557832+#^ username: daniel]  map[password: 5*7832!@$ username: kulkarni]  map[password: fluffy23 username: johnson]  map[password: bedsheet85 username: thomas] ]
+TestFullDiff1: |
+  Found diff on attribute deploymentName:
+    Version 5: MyDeployment
+    Version 6: Deployment66
+TestFieldDiff1: |
+  Found diff on attribute deploymentName:
+    Version 5: MyDeployment
+    Version 6: Deployment66
+TestFieldDiff2: |
+  Found diff on attribute databases:
+    Version 5: [demographics logging servers staff]
+    Version 6: [logging servers staff testing]
+TestFieldDiff3: |
+  Found diff on attribute replicas:
+    Version 5: 3
+    Version 6: 10
+TestFullDiff2: |
+  Found diff on attribute users:
+    Version 5: [[{password 4557832+#^} {username daniel}] [{password 5*7832!@$} {username kulkarni}] [{password fluffy23} {username johnson}] [{password bedsheet85} {username thomas}]]
+    Version 6: [[{password 4557832+#^} {username daniel}] [{password 5*7832!@$} {username kulkarni}] [{password fluffy23} {username johnson}] [{password bedsheet85} {username thomas}] [{password apple468} {username Stevejobs}]]
+TestFullDiff3: |
+  Found diff on attribute databases:
+    Version 5: [demographics logging servers staff]
+    Version 6: [demographics logging servers staff testing]
+  Found diff on attribute users:
+    Version 5: [[{password 4557832+#^} {username daniel}] [{password 5*7832!@$} {username kulkarni}] [{password fluffy23} {username johnson}] [{password bedsheet85} {username thomas}]]
+    Version 6: [[{password 4557832+#^} {username daniel}] [{password 5*7832!@$} {username kulkarni}] [{password fluffy23} {username johnson}] [{password bedsheet85} {username thomas}] [{password apple468} {username Stevejobs}]]
+TestGetVersion1: |
+  [2006-01-02 15:04:05: Version 1,
+  2006-01-02 15:04:05: Version 2,
+  2006-01-02 15:04:05: Version 3,
+  2006-01-02 15:04:05: Version 4,
+  2006-01-02 15:04:05: Version 5,
+  2006-01-02 15:04:05: Version 6]

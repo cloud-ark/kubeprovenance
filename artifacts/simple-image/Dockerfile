@@ -15,5 +15,5 @@
 FROM fedora
 RUN mkdir -p /tmp/
 ADD kube-provenance-apiserver /
-ADD kube-apiserver-audit.log /tmp/
+ADD minikube-sample-audit.log /tmp/
 ENTRYPOINT ["/kube-provenance-apiserver"]
