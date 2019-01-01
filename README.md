@@ -30,7 +30,7 @@ apt-get install -y gcc make socat git wget<br/>
 wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz <br/>
 sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz <br/>
 export PATH=$PATH:/usr/local/go/bin <br/>
-export GOROOT=$PATH:/usr/local/go <br/>
+export GOROOT=/usr/local/go <br/>
 
 Set up your Go workspace, set the GOPATH to it. This is where all your Go code should be. <br/>
 mkdir $HOME/goworkspace <br/>
@@ -192,7 +192,7 @@ minikube ip -- verify that minikube is up and running <br/>
 wget https://dl.google.com/go/go1.10.3.linux-amd64.tar.gz <br/>
 sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz <br/>
 export PATH=$PATH:/usr/local/go/bin <br/>
-export GOROOT=$PATH:/usr/local/go <br/>
+export GOROOT=/usr/local/go <br/>
 
 Set up your Go workspace, set the GOPATH to it. This is where all your Go code should be. <br/>
 mkdir $HOME/goworkspace <br/>
@@ -283,6 +283,12 @@ kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgr
 kubectl get --raw "/apis/kubeprovenance.cloudark.io/v1/namespaces/default/postgreses/client25/bisect?field1=username&value1=pallavi&field2=password&value2=pass123"
 ```
 ![alt text](https://github.com/cloud-ark/kubeprovenance/raw/master/docs/bisect.png)
+
+
+## Running Unit Tests:
+
+1. go test -v ./...
+
 
 ## Troubleshooting tips:
 

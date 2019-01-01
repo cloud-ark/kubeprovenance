@@ -54,6 +54,23 @@ type ProvenanceOfObject struct {
 	Name              string
 }
 
+// Only used when I need to order the AttributeToData map for unit testing
+type pair struct {
+	Attribute string
+	Data      interface{}
+}
+type OrderedMap []pair
+
+//Similar to a map access ..
+//returns Data, ok
+func (o OrderedMap) At(attrib string) (interface{}, bool) {
+	for _, my_pair := range o {
+		if my_pair.Attribute == attrib {
+			return my_pair.Data, true
+		}
+	}
+	return nil, false
+}
 func init() {
 	serviceHost = os.Getenv("KUBERNETES_SERVICE_HOST")
 	servicePort = os.Getenv("KUBERNETES_SERVICE_PORT")
@@ -94,7 +111,7 @@ func CollectProvenance() {
 	readKindCompositionFile()
 	useSample := false
 	if onMinikube() {
-	        useSample = true
+		useSample = true
 		parse(useSample) //using a sample audit log, because
 		//currently audit logging is not supported for minikube
 	} else {
@@ -146,19 +163,60 @@ func FindProvenanceObjectByName(name string, allObjects []ProvenanceOfObject) *P
 	return nil
 }
 
+// This String function must return the same output upon
+// different calls. So I am doing ordering and sorting
+// here because map is unordered and gives random outputs
+// when printing
 func (s *Spec) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Version: %d\n", s.Version)
-	for attribute, data := range s.AttributeToData {
-		fmt.Fprintf(&b, "%s: %s\n", attribute, data)
+
+	var keys []string
+	for k, _ := range s.AttributeToData {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
+	for _, attribute := range keys {
+		data := s.AttributeToData[attribute]
+		integer, ok := data.(int)
+		if ok {
+			fmt.Fprintf(&b, "  %s: %d\n", attribute, integer)
+			continue
+		}
+		v, ok := data.([]map[string]string)
+		if ok {
+			fmt.Fprintf(&b, "  %s: [", attribute)
+			for _, innermap := range v {
+				fmt.Fprintf(&b, " map[")
+				var innerkeys []string
+				for k, _ := range innermap {
+					innerkeys = append(innerkeys, k)
+				}
+				sort.Strings(innerkeys)
+				var strs []string
+				for _, k1 := range innerkeys {
+					strs = append(strs, fmt.Sprintf("%s: %s", k1, innermap[k1]))
+				}
+				fmt.Fprintf(&b, strings.Join(strs, " "))
+				fmt.Fprintf(&b, "] ")
+			}
+			fmt.Fprintf(&b, "]\n")
+		} else {
+			fmt.Fprintf(&b, "  %s: %s\n", attribute, data)
+		}
+	}
+
 	return b.String()
 }
 
+// Returns the string representation of ObjectLineage
+// used in GetHistory
 func (o ObjectLineage) String() string {
 	var b strings.Builder
-	for version, spec := range o {
-		fmt.Fprintf(&b, "Version: %d Data: %s\n", version, spec.String())
+	specs := getSpecsInOrder(o)
+
+	for _, spec := range specs {
+		fmt.Fprintf(&b, spec.String())
 	}
 	return b.String()
 }
@@ -185,30 +243,33 @@ func (o ObjectLineage) GetVersions() string {
 	for _, spec := range specs {
 		outputs = append(outputs, fmt.Sprintf("%s: Version %d", spec.Timestamp, spec.Version)) //cast int to string
 	}
-	return "[" + strings.Join(outputs, ", \n") + "]\n"
+	return "[" + strings.Join(outputs, ",\n") + "]\n"
 }
 
-func (o ObjectLineage) SpecHistory() string {
+//https://stackoverflow.com/questions/23330781/sort-go-map-values-by-keys
+func (o ObjectLineage) stringInterval(s, e int) string {
+	var b strings.Builder
 	specs := getSpecsInOrder(o)
-	specStrings := make([]string, 0)
+
 	for _, spec := range specs {
-		specStrings = append(specStrings, spec.String())
+		if spec.Version >= s && spec.Version <= e {
+			fmt.Fprintf(&b, spec.String())
+		}
 	}
-	return strings.Join(specStrings, "\n")
+	return b.String()
+}
+func (o ObjectLineage) SpecHistory() string {
+	return o.String()
 }
 
 func (o ObjectLineage) SpecHistoryInterval(vNumStart, vNumEnd int) string {
-	specs := getSpecsInOrder(o)
-	specStrings := make([]string, 0)
-	for _, spec := range specs {
-		if spec.Version >= vNumStart && spec.Version <= vNumEnd {
-			specStrings = append(specStrings, spec.String())
-		}
+	if vNumStart < 0 {
+		return "Invalid start parameter"
 	}
-	return strings.Join(specStrings, "\n")
+	return o.stringInterval(vNumStart, vNumEnd)
 }
 func buildAttributeRelationships(specs []Spec, allQueryPairs [][]string) map[string][][]string {
-	// A map from top level attribute to array of pairs (represented as 2 len array)
+	// Returns a map from top level attribute to array of pairs (represented as 2 len array)
 	// mapRelationships with one top level object users, looks like this:
 	// ex:	map[users:[[username pallavi] [password pass123]]]
 	mapRelationships := make(map[string][][]string, 0)
@@ -290,8 +351,9 @@ func buildQueryPairsSlice(queryArgMap map[string]string) ([][]string, error) {
 //field value pairs, searched based on the type.
 func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	specs := getSpecsInOrder(o)
-
 	allQueryPairs, err := buildQueryPairsSlice(argMap)
+	fmt.Printf("Query Attributes Map: %v\n", allQueryPairs)
+
 	if err != nil {
 		return err.Error()
 	}
@@ -303,7 +365,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	// ask if username ever is daniel and password is ever 223843, because
 	// it could find that in different parts of the spec. They both must be satisfied in the same map object
 	mapRelationships := buildAttributeRelationships(specs, allQueryPairs)
-	fmt.Printf("Query Attributes Map:%v\n", mapRelationships)
+	fmt.Printf("Query Attributes Same-parent-relationships: %v\n", mapRelationships)
 	// fmt.Println(specs)
 	for _, spec := range specs {
 
@@ -347,7 +409,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 			}
 			andGate = append(andGate, satisfied)
 		}
-		fmt.Printf("Result of checking all attributes:%v\n", andGate)
+		// fmt.Printf("Result of checking all attributes: %v\n", andGate)
 		allTrue := all(andGate)
 		//all indexes in andGate must be true
 		if allTrue {
@@ -357,7 +419,7 @@ func (o ObjectLineage) Bisect(argMap map[string]string) string {
 	return "No version found that matches the query."
 }
 
-//this is for a field like deploymentName where the underyling state or data is a string
+//this is for a field like deploymentName where the underlying state or data is a string
 func handleTrivialFields(qkey, qval, mkey, fieldData string) bool {
 	if qkey == mkey && qval == fieldData {
 		return true
@@ -377,6 +439,22 @@ func handleSimpleFields(vStringSlice []string, qkey, qval, mkey string) bool {
 	return satisfied
 }
 func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[string][][]string, qkey, qval, mkey string) bool {
+	isPossible := false
+	for _, m := range vSliceMap {
+		for k, _ := range m {
+			if k == qkey {
+				isPossible = true
+			}
+		}
+	}
+	if !isPossible {
+		//for example databases qkey will never pass a
+		//composite field test since it is never a key under
+		//the map vSliceMap
+		// fmt.Printf("NOT POSSIBLE, %s %s\n", qkey, mkey)
+		return false
+	}
+
 	for _, mymap := range vSliceMap { //looping through each elem in the mapSlice
 		// check if there is any
 		// other necessary requirements for this mkey.
@@ -392,7 +470,6 @@ func handleCompositeFields(vSliceMap []map[string]string, mapRelationships map[s
 		// find all the related attributes associated with the top-level specs
 		// attribute mkey. this would be users for the postgres crd example.
 		attributeCombinedQuery, ok := mapRelationships[mkey]
-
 		if ok { //ensure multiple attributes are jointly satisfied
 			jointQueryResults := make([]bool, 0)
 			//jointQueryResults is a boolean slice that represents the satisfiability
@@ -484,69 +561,126 @@ func compareMaps(mapSlice1, mapSlice2 []map[string]string) bool {
 	}
 	return all(foundMatches)
 }
+
+//Need some way to bring order to the elements of the AttributeToData map,
+// because otherwise, the output is randomly ordered and I cannot unit test that.
+// so This method orders the map based on the Attribute key and is similar
+// to C++'s pair.
+func (s Spec) OrderedPairs() OrderedMap {
+	var keys []string
+	for k, _ := range s.AttributeToData {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	orderedRet := make(OrderedMap, 0)
+	for _, k1 := range keys {
+		p := pair{}
+		p.Attribute = k1
+		p.Data = s.AttributeToData[k1]
+		orderedRet = append(orderedRet, p)
+	}
+	return orderedRet
+}
 func (o ObjectLineage) FullDiff(vNumStart, vNumEnd int) string {
 	var b strings.Builder
-	sp1 := o[vNumStart]
-	sp2 := o[vNumEnd]
-	for attribute, data1 := range sp1.AttributeToData {
-		data2, ok := sp2.AttributeToData[attribute] //check if the attribute even exists
+	sp1 := o[vNumStart].OrderedPairs()
+	sp2 := o[vNumEnd].OrderedPairs()
+	for _, my_pair := range sp1 {
+		attr := my_pair.Attribute
+		data1 := my_pair.Data
+		data2, ok := sp2.At(attr) //check if the attribute even exists
 		if ok {
-			getDiff(&b, attribute, data1, data2, vNumStart, vNumEnd)
+			getDiff(&b, attr, data1, data2, vNumStart, vNumEnd)
 		} else { //for the case where a key exists in spec 1 that doesn't exist in spec 2
-			fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
-			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
-			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, "No attribute found.")
+			fmt.Fprintf(&b, "Found diff on attribute %s:\n", attr)
+			fmt.Fprintf(&b, "  Version %d: %s\n", vNumStart, data1)
+			fmt.Fprintf(&b, "  Version %d: %s\n", vNumEnd, "No attribute found.")
 		}
 	}
 	//for the case where a key exists in spec 2 that doesn't exist in spec 1
-	for attribute, data1 := range sp2.AttributeToData {
-		if _, ok := sp2.AttributeToData[attribute]; !ok {
-			fmt.Fprintf(&b, "Found diff on attribute %s:\n", attribute)
-			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, "No attribute found.")
-			fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data1)
+	for _, my_pair := range sp2 {
+		attr := my_pair.Attribute
+		data1 := my_pair.Data
+		if _, ok := sp2.At(attr); !ok {
+			fmt.Fprintf(&b, "Found diff on attribute %s:\n", attr)
+			fmt.Fprintf(&b, "  Version %d: %s\n", vNumStart, "No attribute found.")
+			fmt.Fprintf(&b, "  Version %d: %s\n", vNumEnd, data1)
 		}
 	}
 	return b.String()
+}
+func orderInnerMaps(m []map[string]string) []OrderedMap {
+	orderedMaps := make([]OrderedMap, 0)
+	for _, mi := range m {
+		var keys []string
+		for k, _ := range mi {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		orderedRet := make(OrderedMap, 0)
+		for _, k1 := range keys {
+			p := pair{}
+			p.Attribute = k1
+			p.Data = mi[k1]
+			orderedRet = append(orderedRet, p)
+		}
+		orderedMaps = append(orderedMaps, orderedRet)
+	}
+
+	return orderedMaps
 }
 func getDiff(b *strings.Builder, fieldName string, data1, data2 interface{}, vNumStart, vNumEnd int) string {
 	str1, ok1 := data1.(string)
 	str2, ok2 := data2.(string)
 	if ok1 && ok2 && str1 != str2 {
 		fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
-		fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, data1)
-		fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, data2)
+		fmt.Fprintf(b, "  Version %d: %s\n", vNumStart, data1)
+		fmt.Fprintf(b, "  Version %d: %s\n", vNumEnd, data2)
 	}
 	int1, ok1 := data1.(int)
 	int2, ok2 := data2.(int)
 	if ok1 && ok2 && int1 != int2 {
 		fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
-		fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, data1)
-		fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, data2)
+		fmt.Fprintf(b, "  Version %d: %d\n", vNumStart, int1)
+		fmt.Fprintf(b, "  Version %d: %d\n", vNumEnd, int2)
 	}
 	strArray1, ok1 := data1.([]string)
 	strArray2, ok2 := data2.([]string)
 	if ok1 && ok2 {
-		for _, str := range strArray1 {
-			found := false
-			for _, val := range strArray2 {
-				if str == val {
-					found = true
+		sort.Strings(strArray1)
+		sort.Strings(strArray2)
+
+		//When the arrays are not the same len, found a difference.
+		if len(strArray1) != len(strArray2) {
+			fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+			fmt.Fprintf(b, "  Version %d: %s\n", vNumStart, strArray1)
+			fmt.Fprintf(b, "  Version %d: %s\n", vNumEnd, strArray2)
+		} else {
+			for _, val1 := range strArray1 {
+				found := false
+				for _, val2 := range strArray2 {
+					if val1 == val2 {
+						found = true
+					}
 				}
-			}
-			if !found { // if an element does not have a match in the next version
-				fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
-				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strArray1)
-				fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strArray2)
+				if !found { // if an element does not have a match in the next version
+					fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
+					fmt.Fprintf(b, "  Version %d: %s\n", vNumStart, strArray1)
+					fmt.Fprintf(b, "  Version %d: %s\n", vNumEnd, strArray2)
+					break
+				}
 			}
 		}
 	}
 	strMap1, ok1 := data1.([]map[string]string)
 	strMap2, ok2 := data2.([]map[string]string)
 	if ok1 && ok2 {
+		orderedInnerMap1 := orderInnerMaps(strMap1)
+		orderedInnerMap2 := orderInnerMaps(strMap2)
 		if !compareMaps(strMap1, strMap2) {
 			fmt.Fprintf(b, "Found diff on attribute %s:\n", fieldName)
-			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumStart, strMap1)
-			fmt.Fprintf(b, "\tVersion %d: %s\n", vNumEnd, strMap2)
+			fmt.Fprintf(b, "  Version %d: %s\n", vNumStart, orderedInnerMap1)
+			fmt.Fprintf(b, "  Version %d: %s\n", vNumEnd, orderedInnerMap2)
 		}
 	}
 
@@ -554,6 +688,8 @@ func getDiff(b *strings.Builder, fieldName string, data1, data2 interface{}, vNu
 }
 func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) string {
 	var b strings.Builder
+	//Since this is a single field, do not have to do the OrderedMap business like the FullDiff.
+	//Same outp everytime
 	data1, ok1 := o[vNumStart].AttributeToData[fieldName]
 	data2, ok2 := o[vNumEnd].AttributeToData[fieldName]
 	switch {
@@ -561,12 +697,12 @@ func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) strin
 		return getDiff(&b, fieldName, data1, data2, vNumStart, vNumEnd)
 	case !ok1 && ok2:
 		fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
-		fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, "No attribute found.")
-		fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, data2)
+		fmt.Fprintf(&b, "  Version %d: %s\n", vNumStart, "No attribute found.")
+		fmt.Fprintf(&b, "  Version %d: %s\n", vNumEnd, data2)
 	case ok1 && !ok2:
 		fmt.Fprintf(&b, "Found diff on attribute %s:\n", fieldName)
-		fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumStart, data1)
-		fmt.Fprintf(&b, "\tVersion %d: %s\n", vNumEnd, "No attribute found.")
+		fmt.Fprintf(&b, "  Version %d: %s\n", vNumStart, data1)
+		fmt.Fprintf(&b, "  Version %d: %s\n", vNumEnd, "No attribute found.")
 	case !ok1 && !ok2:
 		fmt.Fprintf(&b, "Attribute not found in either version %d or %d", vNumStart, vNumEnd)
 	}
@@ -576,24 +712,24 @@ func (o ObjectLineage) FieldDiff(fieldName string, vNumStart, vNumEnd int) strin
 //Ref:https://www.sohamkamani.com/blog/2017/10/18/parsing-json-in-golang/#unstructured-data
 func parse(useSample bool) {
 
-        var log *os.File
+	var log *os.File
 	var err error
-        if useSample {
-	  log, err = os.Open("/tmp/minikube-sample-audit.log")
-	  if err != nil {
-		fmt.Println(fmt.Sprintf("could not open the log file %s", err))
-		panic(err)
-	  }
+	if useSample {
+		log, err = os.Open("/tmp/minikube-sample-audit.log")
+		if err != nil {
+			fmt.Println(fmt.Sprintf("could not open the log file %s", err))
+			panic(err)
+		}
 	} else {
-	  if _, err := os.Stat("/tmp/kube-apiserver-audit.log"); os.IsNotExist(err) {
-	     fmt.Println(fmt.Sprintf("could not stat the path %s", err))
-	     panic(err)
-	  }
-	  log, err = os.Open("/tmp/kube-apiserver-audit.log")
-	  if err != nil {
-		fmt.Println(fmt.Sprintf("could not open the log file %s", err))
-		panic(err)
-	  }
+		if _, err := os.Stat("/tmp/kube-apiserver-audit.log"); os.IsNotExist(err) {
+			fmt.Println(fmt.Sprintf("could not stat the path %s", err))
+			panic(err)
+		}
+		log, err = os.Open("/tmp/kube-apiserver-audit.log")
+		if err != nil {
+			fmt.Println(fmt.Sprintf("could not open the log file %s", err))
+			panic(err)
+		}
 	}
 
 	defer log.Close()
